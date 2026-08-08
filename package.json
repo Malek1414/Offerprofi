@@ -15,13 +15,13 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:invariants": "vitest run tests/invariants",
+    "test:db": "./db/test.sh",
     "verify": "npm run typecheck && npm run lint && npm run test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.68.0",
-    "@supabase/ssr": "^0.7.0",
-    "@supabase/supabase-js": "^2.58.0",
     "next": "^15.5.0",
+    "pg": "^8.23.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "zod": "^4.1.0"
@@ -29,6 +29,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^22.10.0",
+    "@types/pg": "^8.21.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "@typescript-eslint/parser": "^8.66.0",

@@ -55,7 +55,7 @@ These are not a phase. They are built early and enforced continuously.
 | ID | Feature | Acceptance |
 |---|---|---|
 | F0.1 | Next.js + TS strict repo, CI (lint, typecheck, test) on every PR | Red CI blocks merge |
-| F0.2 | Supabase project, EU Frankfurt — Postgres, Auth, Storage, pgvector | Region verified in project settings, recorded in the DPA record |
+| F0.2 | Postgres instance, EU — plus S3-compatible object storage and pgvector. Auth is ours (D29) | Region verified with the host, recorded in the DPA record |
 | F0.3 | Full schema migration — every table in spec §10, plus the five named indexes | Migration runs clean from empty; `messages(external_message_id)` unique constraint present |
 | F0.4 | RLS on every tenant table, keyed on `agency_id` via `agency_members` | No tenant table lacks a policy. Asserted by a schema test that enumerates tables |
 | F0.5 | Storage bucket policies, tenant-prefixed paths `tenant/{agency_id}/…` | A signed URL for tenant A cannot resolve an object of tenant B |
@@ -294,7 +294,7 @@ months earlier with no platform risk.
 | F9.1 | Per-contact data export, owner-operable without us | Machine-readable + human-readable |
 | F9.2 | Per-contact deletion within 30 days, with audit trail | Deletion cascades correctly and is provable |
 | F9.3 | Retention jobs — raw payloads 30 days, inquiry data default 24 months post-closure, agency-configurable | Jobs are monitored; a stalled job alerts |
-| F9.4 | Art. 28 DPA at signup + named sub-processor list (Supabase EU, Anthropic, Cloudflare, Stripe) | Acceptance recorded with version and timestamp |
+| F9.4 | Art. 28 DPA at signup + named sub-processor list (Postgres host EU, object storage EU, Anthropic, Cloudflare, Stripe) | Acceptance recorded with version and timestamp |
 | F9.5 | Per-agency privacy notice hosting + link injection into chat, quote and email | Art. 13 duty met at first contact |
 | F9.6 | **Art. 22 assessment**, written from live code facts and citing I1–I6 with file references | A reviewer can verify each claim by reading the named code |
 | F9.7 | DPIA threshold screening, documented | Expected conclusion: no full DPIA required. But written down, not assumed |

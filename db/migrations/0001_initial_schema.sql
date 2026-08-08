@@ -2,18 +2,76 @@
 -- 0001 — initial schema (PRODUCT_SPEC §10, FEATURE_INVENTORY F0.3)
 --
 -- Every tenant table carries agency_id and is protected by RLS scoped through
--- agency_members. Workers use the service role and must pass agency_id explicitly;
--- the public chat route resolves slug → agency_id server-side and never accepts an
--- agency_id from the client.
+-- agency_members. Workers connect as the owner role and must pass agency_id
+-- explicitly; the public chat route resolves slug → agency_id server-side and never
+-- accepts an agency_id from the client.
 --
 -- Two structural decisions in here are load-bearing for GDPR Art. 22 and are called
 -- out where they appear:
 --   * inquiries.state has no 'declined_by_system' value          (invariant 1)
 --   * event_briefs splits brief_json from contact_json           (invariant 2)
+--
+-- Target: plain PostgreSQL 15+ in the EU (decision D15).
 -- ============================================================================
 
 create extension if not exists "pgcrypto";
-create extension if not exists "vector";
+
+-- pgvector is deliberately *not* created here. Nothing in this schema has a vector
+-- column yet — it was reserved for semantic catalogue search, which is not built —
+-- and `create extension "vector"` is fatal on a Postgres that does not ship it.
+-- That turned an unused future feature into a hard hosting requirement that failed
+-- the very first migration run.
+--
+-- Add it in the migration that introduces the first vector column, and treat
+-- pgvector availability as a selection criterion for the host at that point (D29d).
+
+-- ─── Identity ───────────────────────────────────────────────────────────────
+--
+-- Ours, because the database is plain Postgres (D15). There is no `auth` schema and
+-- no platform-supplied `uid()` function, so both are defined here.
+--
+-- Only agency staff have accounts. Customers never do (D11) — they reach quotes and
+-- chats through tokenised links, which is why nothing in this table is reachable
+-- from a customer surface.
+
+create table users (
+  id uuid primary key default gen_random_uuid(),
+  email text not null unique,
+  -- Argon2id or bcrypt, produced by the application. The database never sees a
+  -- plaintext password and has no function that could hash one.
+  password_hash text not null,
+  display_name text not null default '',
+  created_at timestamptz not null default now(),
+  last_seen_at timestamptz
+);
+
+-- The role the application connects as. RLS policies are granted to it, and it is
+-- deliberately NOLOGIN + NOBYPASSRLS: the app authenticates as a login role that
+-- inherits this one, and no amount of application bug can make it bypass a policy.
+do $$
+begin
+  if not exists (select 1 from pg_roles where rolname = 'app_user') then
+    create role app_user nologin nobypassrls;
+  end if;
+end $$;
+
+-- ─── Request-scoped identity ────────────────────────────────────────────────
+--
+-- The application sets `app.current_user_id` on the connection at the start of each
+-- request — see src/db/client.ts, which does it inside the same transaction as the
+-- query so a pooled connection can never carry one request's identity into the next.
+--
+-- `true` as the second argument makes a missing setting return NULL rather than
+-- raising. That is the correct default: an unauthenticated connection has no user,
+-- and every RLS policy then denies rather than errors. Failing closed on the
+-- absence of an identity is the whole point.
+create or replace function public.current_user_id()
+returns uuid
+language sql
+stable
+as $$
+  select nullif(current_setting('app.current_user_id', true), '')::uuid;
+$$;
 
 -- ─── Enums ──────────────────────────────────────────────────────────────────
 
@@ -56,7 +114,7 @@ create table agencies (
 
 create table agency_members (
   agency_id uuid not null references agencies(id) on delete cascade,
-  user_id uuid not null references auth.users(id) on delete cascade,
+  user_id uuid not null references users(id) on delete cascade,
   role member_role not null default 'member',
   invited_at timestamptz not null default now(),
   accepted_at timestamptz,
@@ -84,7 +142,7 @@ set search_path = public
 as $$
   select exists (
     select 1 from agency_members m
-    where m.agency_id = target and m.user_id = auth.uid()
+    where m.agency_id = target and m.user_id = public.current_user_id()
   );
 $$;
 
@@ -97,7 +155,7 @@ set search_path = public
 as $$
   select exists (
     select 1 from agency_members m
-    where m.agency_id = target and m.user_id = auth.uid() and m.role = 'owner'
+    where m.agency_id = target and m.user_id = public.current_user_id() and m.role = 'owner'
   );
 $$;
 
@@ -163,7 +221,7 @@ create table catalog_items (
   quantity_driver quantity_driver not null default 'flat',
   active boolean not null default true,
   source_asset_ids uuid[],
-  confirmed_by uuid references auth.users(id),
+  confirmed_by uuid references users(id),
   -- F2.8: nothing enters the live catalogue unconfirmed. Enforced below.
   confirmed_at timestamptz,
   created_at timestamptz not null default now(),
@@ -255,7 +313,7 @@ create table inquiries (
   first_message_at timestamptz not null default now(),
   acknowledged_at timestamptz,
   sla_due_at timestamptz,
-  assigned_user_id uuid references auth.users(id),
+  assigned_user_id uuid references users(id),
   escalation_reason text,
   closed_reason text,
   -- Set by request-human or an escalation. While true, no agent turn is generated.
@@ -461,7 +519,7 @@ create table escalations (
   reason text not null,
   opened_at timestamptz not null default now(),
   resolved_at timestamptz,
-  resolved_by uuid references auth.users(id)
+  resolved_by uuid references users(id)
 );
 create index on escalations (agency_id, resolved_at);
 
@@ -474,7 +532,7 @@ create table human_interventions (
   surface text not null,
   requested_at timestamptz not null default now(),
   responded_at timestamptz,
-  user_id uuid references auth.users(id)
+  user_id uuid references users(id)
 );
 create index on human_interventions (agency_id, requested_at);
 

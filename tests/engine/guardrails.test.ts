@@ -144,3 +144,33 @@ describe('guardrails', () => {
     expect(holdingMessage('Lisa', 'de', 'sie')).toContain('Sie hören')
   })
 })
+
+describe('modifier reasons are localised, never emitted by the engine', () => {
+  it('renders German and English for every reason code', async () => {
+    const { modifierReason } = await import('../../src/i18n/modifier-reasons')
+    const cases = [
+      ['weekend', { date: '2027-06-12' }],
+      ['peak_season', { date: '2027-06-12' }],
+      ['rush', { days: 14 }],
+      ['travel_distance', { km: 60, threshold: 30 }],
+      ['overtime', { hours: 10, included: 8 }],
+    ] as const
+
+    for (const [code, params] of cases) {
+      const de = modifierReason(code, params, 'de')
+      const en = modifierReason(code, params, 'en')
+      expect(de.length).toBeGreaterThan(5)
+      expect(en.length).toBeGreaterThan(5)
+      expect(de).not.toBe(en)
+      // No raw ISO dates leaking onto a customer-facing document.
+      expect(de).not.toMatch(/\d{4}-\d{2}-\d{2}/)
+    }
+  })
+
+  it('writes German dates as a German reader expects', () => {
+    // 12. Juni 2027, not 2027-06-12 and not June 12.
+    return import('../../src/i18n/modifier-reasons').then(({ modifierReason }) => {
+      expect(modifierReason('peak_season', { date: '2027-06-12' }, 'de')).toContain('12. Juni 2027')
+    })
+  })
+})

@@ -32,26 +32,26 @@ begin
 
     execute format($p$
       create policy %I on %I
-      for select to authenticated
+      for select to app_user
       using (public.is_agency_member(agency_id))
     $p$, t || '_select', t);
 
     execute format($p$
       create policy %I on %I
-      for insert to authenticated
+      for insert to app_user
       with check (public.is_agency_member(agency_id))
     $p$, t || '_insert', t);
 
     execute format($p$
       create policy %I on %I
-      for update to authenticated
+      for update to app_user
       using (public.is_agency_member(agency_id))
       with check (public.is_agency_member(agency_id))
     $p$, t || '_update', t);
 
     execute format($p$
       create policy %I on %I
-      for delete to authenticated
+      for delete to app_user
       using (public.is_agency_member(agency_id))
     $p$, t || '_delete', t);
   end loop;
@@ -63,13 +63,13 @@ alter table agencies enable row level security;
 alter table agencies force row level security;
 
 create policy agencies_select on agencies
-  for select to authenticated
+  for select to app_user
   using (public.is_agency_member(id));
 
 -- Only an owner may edit the agency's own legal identity — it lands on every quote
 -- under §14 UStG, so a teammate changing the VAT id is a tax problem, not a typo.
 create policy agencies_update on agencies
-  for update to authenticated
+  for update to app_user
   using (public.is_agency_owner(id))
   with check (public.is_agency_owner(id));
 
@@ -77,13 +77,13 @@ alter table agency_members enable row level security;
 alter table agency_members force row level security;
 
 create policy agency_members_select on agency_members
-  for select to authenticated
+  for select to app_user
   using (public.is_agency_member(agency_id));
 
 -- Membership changes are an owner-only act (F6.15). Enforced here rather than in
 -- the UI, because UI-enforced permissions are decoration.
 create policy agency_members_write on agency_members
-  for all to authenticated
+  for all to app_user
   using (public.is_agency_owner(agency_id))
   with check (public.is_agency_owner(agency_id));
 
@@ -93,7 +93,7 @@ drop policy subscriptions_insert on subscriptions;
 drop policy subscriptions_update on subscriptions;
 drop policy subscriptions_delete on subscriptions;
 create policy subscriptions_owner_only on subscriptions
-  for all to authenticated
+  for all to app_user
   using (public.is_agency_owner(agency_id))
   with check (public.is_agency_owner(agency_id));
 
@@ -103,7 +103,7 @@ drop policy guardrails_insert on guardrails;
 drop policy guardrails_update on guardrails;
 drop policy guardrails_delete on guardrails;
 create policy guardrails_owner_write on guardrails
-  for all to authenticated
+  for all to app_user
   using (public.is_agency_owner(agency_id))
   with check (public.is_agency_owner(agency_id));
 
@@ -111,7 +111,7 @@ drop policy channel_connections_insert on channel_connections;
 drop policy channel_connections_update on channel_connections;
 drop policy channel_connections_delete on channel_connections;
 create policy channel_connections_owner_write on channel_connections
-  for all to authenticated
+  for all to app_user
   using (public.is_agency_owner(agency_id))
   with check (public.is_agency_owner(agency_id));
 
@@ -127,7 +127,7 @@ drop policy disclosure_records_update on disclosure_records;
 drop policy disclosure_records_delete on disclosure_records;
 -- Responding to an intervention must still be recordable.
 create policy human_interventions_respond on human_interventions
-  for update to authenticated
+  for update to app_user
   using (public.is_agency_member(agency_id))
   with check (public.is_agency_member(agency_id));
 
@@ -135,6 +135,44 @@ create policy human_interventions_respond on human_interventions
 -- new row; editing an old one would break the acceptance audit trail.
 drop policy quote_versions_update on quote_versions;
 drop policy quote_versions_delete on quote_versions;
+
+-- ─── Privileges ─────────────────────────────────────────────────────────────
+--
+-- A policy grants nothing on its own: it filters rows a role may already touch. On
+-- a managed platform the application role arrives pre-granted, which makes this step
+-- easy to forget on plain Postgres — the symptom is "permission denied for table"
+-- on every query, not a silent leak, so it fails loudly at least.
+--
+-- Granted table-wide and narrowed by RLS, which is the intended division of labour:
+-- privileges say *which tables*, policies say *which rows*.
+grant usage on schema public to app_user;
+grant select, insert, update, delete on all tables in schema public to app_user;
+grant usage, select on all sequences in schema public to app_user;
+grant execute on all functions in schema public to app_user;
+
+-- Tables added by a later migration inherit the same grants, so a new table is
+-- covered by default rather than by remembering.
+alter default privileges in schema public
+  grant select, insert, update, delete on tables to app_user;
+alter default privileges in schema public
+  grant usage, select on sequences to app_user;
+
+-- `users` is the exception: an agency member may read their own row through the
+-- application, never the whole staff table of every tenant. Revoked here and served
+-- by a policy below.
+revoke select, insert, update, delete on users from app_user;
+grant select, update on users to app_user;
+alter table users enable row level security;
+alter table users force row level security;
+
+create policy users_select_self on users
+  for select to app_user
+  using (id = public.current_user_id());
+
+create policy users_update_self on users
+  for update to app_user
+  using (id = public.current_user_id())
+  with check (id = public.current_user_id());
 
 -- ─── Coverage assertion (F0.4) ──────────────────────────────────────────────
 -- Any public table carrying agency_id must have RLS enabled. This runs at migration

@@ -67,8 +67,24 @@ export interface AppliedModifier {
   delta: Cents
   appliedToLine: CatalogItemId | null
   orderIndex: number
-  reason: string
+  /**
+   * Why this modifier fired, as a code plus parameters rather than a sentence.
+   *
+   * The engine must not emit display text. This value ends up on a customer-facing
+   * quote whose language is mirrored from the customer (D19), and a German bride
+   * reading "2027-06-12 falls in peak season" on her Angebot is exactly the
+   * unprofessional impression the product exists to fix. The renderer localises it.
+   */
+  reasonCode: ModifierReasonCode
+  reasonParams: Record<string, string | number>
 }
+
+export type ModifierReasonCode =
+  | 'weekend'
+  | 'peak_season'
+  | 'rush'
+  | 'travel_distance'
+  | 'overtime'
 
 export interface VatBreakdownEntry {
   rate: VatRate
@@ -151,32 +167,41 @@ function withinRanges(isoDate: string, ranges: { startsOn: string; endsOn: strin
   })
 }
 
-function modifierApplies(mod: Modifier, input: PricingInput): { applies: boolean; reason: string } {
+function modifierApplies(
+  mod: Modifier,
+  input: PricingInput,
+): { applies: boolean; code: ModifierReasonCode; params: Record<string, string | number> } {
   const c = mod.condition
+  const no = { applies: false, code: c.kind, params: {} } as const
   switch (c.kind) {
     case 'weekend':
       return isWeekend(input.eventDate)
-        ? { applies: true, reason: `${input.eventDate} falls on a weekend` }
-        : { applies: false, reason: '' }
+        ? { applies: true, code: 'weekend', params: { date: input.eventDate } }
+        : no
     case 'peak_season':
       return withinRanges(input.eventDate, c.ranges)
-        ? { applies: true, reason: `${input.eventDate} falls in peak season` }
-        : { applies: false, reason: '' }
+        ? { applies: true, code: 'peak_season', params: { date: input.eventDate } }
+        : no
     case 'rush':
       return input.availability === 'below_lead_time'
-        ? { applies: true, reason: `booked inside the ${c.leadTimeMinDays}-day minimum lead time` }
-        : { applies: false, reason: '' }
+        ? { applies: true, code: 'rush', params: { days: c.leadTimeMinDays } }
+        : no
     case 'travel_distance':
       return input.distanceKm > c.thresholdKm
-        ? { applies: true, reason: `${input.distanceKm} km exceeds the ${c.thresholdKm} km threshold` }
-        : { applies: false, reason: '' }
+        ? {
+            applies: true,
+            code: 'travel_distance',
+            params: { km: input.distanceKm, threshold: c.thresholdKm },
+          }
+        : no
     case 'overtime':
       return input.durationHours > c.includedHours
         ? {
             applies: true,
-            reason: `${input.durationHours} h exceeds the ${c.includedHours} h included`,
+            code: 'overtime',
+            params: { hours: input.durationHours, included: c.includedHours },
           }
-        : { applies: false, reason: '' }
+        : no
   }
 }
 
@@ -290,7 +315,7 @@ export function priceQuote(input: PricingInput, catalogue: Catalogue): PricedQuo
 
   // ── Step 5: modifiers, in order, each recorded ────────────────────────────
   for (const mod of catalogue.modifiers) {
-    const { applies, reason } = modifierApplies(mod, input)
+    const { applies, code, params } = modifierApplies(mod, input)
     if (!applies) continue
 
     if (mod.adjustmentType === 'pct') {
@@ -308,7 +333,8 @@ export function priceQuote(input: PricingInput, catalogue: Catalogue): PricedQuo
           delta,
           appliedToLine: line.catalogItemId,
           orderIndex: mod.orderIndex,
-          reason,
+          reasonCode: code,
+          reasonParams: params,
         }
         appliedModifiers.push(record)
         steps.push({ step: 5, action: 'apply_modifier', modifier: record })
@@ -328,7 +354,8 @@ export function priceQuote(input: PricingInput, catalogue: Catalogue): PricedQuo
         delta,
         appliedToLine: target.catalogItemId,
         orderIndex: mod.orderIndex,
-        reason,
+        reasonCode: code,
+        reasonParams: params,
       }
       appliedModifiers.push(record)
       steps.push({ step: 5, action: 'apply_modifier', modifier: record })

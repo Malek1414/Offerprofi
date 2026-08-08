@@ -171,9 +171,12 @@ describe('pricing — golden set', () => {
     expect(kinds.has('peak_season')).toBe(true)
     expect(kinds.has('rush')).toBe(true)
 
-    // Each carries a human-readable reason, so the owner can explain it on the phone.
+    // Each carries a machine-readable reason, never prose — the engine must not
+    // emit anything a customer reads, because the quote is rendered in whichever
+    // language the customer wrote in.
     for (const m of q.modifiers) {
-      expect(m.reason.length).toBeGreaterThan(5)
+      expect(m.reasonCode).toBeTruthy()
+      expect(m.reasonParams).toBeTypeOf('object')
       expect(m.delta).not.toBe(0)
     }
   })

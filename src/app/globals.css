@@ -1,0 +1,167 @@
+/*
+ * The chassis.
+ *
+ * Design constraint (FEATURE_INVENTORY §15): this system hosts someone else's brand.
+ * Every colour with saturation in it comes from the agency, via --brand* set inline
+ * per page from BrandProfile. Our own palette is deliberately achromatic with a
+ * slight cool cast, because a warm cream ground — the obvious choice for a wedding
+ * product — fights whatever hue the agency picks. A neutral host is the better one.
+ *
+ * The other governing decision: money is set in tabular figures everywhere. This is
+ * a product whose central artefact is a column of prices, and figures that shift
+ * width between rows read as amateur to exactly the buyer we are trying to convince.
+ */
+
+:root {
+  /* Ground. Cool, near-white — office paper, not parchment. */
+  --paper: #fcfcfd;
+  --paper-sunk: #f4f5f7;
+  --paper-raised: #ffffff;
+
+  /* Ink ramp. Slight blue cast so it sits beneath any agency hue. */
+  --ink: #14161c;
+  --ink-soft: #454b57;
+  --ink-mute: #6c7381;
+  --ink-faint: #9aa0ac;
+
+  --line: #e3e6ea;
+  --line-strong: #cdd2d9;
+
+  /* Agency brand, overridden inline. These defaults are our own neutral. */
+  --brand: #3f4756;
+  --brand-ink: #3f4756;
+  --on-brand: #ffffff;
+  --brand-wash: #f6f7f8;
+  --brand-line: #dcdfe4;
+
+  /* State. Kept desaturated so it never competes with the agency accent. */
+  --warn-ink: #7a4a12;
+  --warn-wash: #fdf6ec;
+
+  --display: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --measure: 34rem;
+  --radius: 3px;
+
+  --step--1: clamp(0.78rem, 0.76rem + 0.1vw, 0.83rem);
+  --step-0: clamp(0.95rem, 0.92rem + 0.15vw, 1.02rem);
+  --step-1: clamp(1.14rem, 1.08rem + 0.3vw, 1.3rem);
+  --step-2: clamp(1.42rem, 1.3rem + 0.6vw, 1.75rem);
+  --step-3: clamp(1.8rem, 1.55rem + 1.2vw, 2.6rem);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --paper: #14161a;
+    --paper-sunk: #0f1114;
+    --paper-raised: #1b1e24;
+    --ink: #f2f3f5;
+    --ink-soft: #c3c8d1;
+    --ink-mute: #949ba7;
+    --ink-faint: #6d747f;
+    --line: #2a2e36;
+    --line-strong: #3a3f49;
+    --warn-wash: #2a2113;
+    --warn-ink: #e3b877;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: var(--step-0);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Money and quantities. The single most important typographic rule in the product. */
+.num,
+td.num,
+.money {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--display);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+  margin: 0;
+  text-wrap: balance;
+}
+
+a {
+  color: var(--brand-ink);
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: 1px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand-ink);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+button {
+  font: inherit;
+}
+
+/* An eyebrow labels a region. It is a label, not decoration — every use in this
+   product names something the reader can act on or verify. */
+.eyebrow {
+  font-family: var(--body);
+  font-size: var(--step--1);
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media print {
+  body {
+    background: #fff;
+    color: #000;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

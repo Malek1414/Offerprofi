@@ -1,0 +1,391 @@
+/*
+ * Quote document styles (screen S26).
+ *
+ * CSS Modules rather than CSS-in-JS: the document must render on the server, and the
+ * PDF renderer (F5.3) consumes the same markup, so styles that only exist after
+ * hydration would silently diverge between the two representations. Content-identical
+ * is a requirement here, not an aspiration.
+ */
+
+.doc {
+  /* Resolve the two schemes emitted by themeStyle(). Defined here rather than in
+     globals so the document can be embedded anywhere without carrying the rule. */
+  --brand-ink: var(--brand-ink-l);
+  --brand-wash: var(--brand-wash-l);
+  --brand-line: var(--brand-line-l);
+
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: clamp(1.15rem, 4vw, 3.5rem) clamp(1.15rem, 4vw, 3rem) 4rem;
+  background: var(--paper-raised);
+}
+
+.banner {
+  margin: 0 0 1.5rem;
+  padding: 0.7rem 0.9rem;
+  background: var(--warn-wash);
+  color: var(--warn-ink);
+  border-radius: var(--radius);
+  font-size: var(--step--1);
+}
+
+/* ── Briefkopf ─────────────────────────────────────────────────────────── */
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.75rem;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid var(--brand);
+}
+
+.logo {
+  display: block;
+  max-height: 3rem;
+  max-width: 14rem;
+  width: auto;
+  margin-bottom: 0.7rem;
+}
+
+.wordmark {
+  display: block;
+  font-family: var(--display);
+  font-size: var(--step-1);
+  font-weight: 600;
+  color: var(--brand-ink);
+  margin-bottom: 0.6rem;
+  letter-spacing: -0.01em;
+}
+
+.address {
+  font-style: normal;
+  font-size: var(--step--1);
+  line-height: 1.5;
+  color: var(--ink-mute);
+}
+
+.meta {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 0.35rem 1.1rem;
+  margin: 0;
+  font-size: var(--step--1);
+}
+.meta > div {
+  display: contents;
+}
+.meta dt {
+  color: var(--ink-mute);
+  white-space: nowrap;
+}
+.meta dd {
+  margin: 0;
+  text-align: right;
+  color: var(--ink);
+}
+
+/* ── Betreff ───────────────────────────────────────────────────────────── */
+
+.subject {
+  padding: 2.25rem 0 1.75rem;
+}
+.subject h1 {
+  font-size: var(--step-3);
+  margin: 0.5rem 0 0.7rem;
+  max-width: var(--measure);
+}
+.recipient {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+/* ── Positionen ────────────────────────────────────────────────────────── */
+
+.thead {
+  display: grid;
+  grid-template-columns: 1fr 6rem 7rem 7.5rem;
+  gap: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--line-strong);
+  font-size: var(--step--1);
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.thead span + span {
+  text-align: right;
+}
+
+.lineList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.lineList > li {
+  border-bottom: 1px solid var(--line);
+  padding: 1.1rem 0 0.55rem;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 6rem 7rem 7.5rem;
+  gap: 1rem;
+  align-items: baseline;
+}
+.what h2 {
+  font-family: var(--body);
+  font-size: var(--step-0);
+  font-weight: 600;
+  letter-spacing: 0;
+  margin: 0;
+}
+.what p {
+  margin: 0.25rem 0 0;
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+  max-width: 28rem;
+}
+.qty,
+.unit {
+  text-align: right;
+  color: var(--ink-soft);
+  font-size: var(--step--1);
+}
+.net {
+  text-align: right;
+  font-weight: 600;
+}
+
+/* The signature control: opens one line's arithmetic. */
+.why {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.6rem;
+  padding: 0.2rem 0;
+  background: none;
+  border: 0;
+  color: var(--brand-ink);
+  font-size: var(--step--1);
+  cursor: pointer;
+}
+.why:hover .whyLabel {
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+.chev {
+  display: inline-grid;
+  place-items: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 1px solid var(--brand-line);
+  border-radius: 2px;
+  font-size: 0.85rem;
+  line-height: 1;
+  color: var(--brand-ink);
+}
+
+.trace {
+  padding: 0.55rem 0 0.9rem;
+}
+.trace ol {
+  list-style: none;
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  background: var(--brand-wash);
+  border-radius: var(--radius);
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+}
+.trace li {
+  display: grid;
+  grid-template-columns: 1fr auto 7rem;
+  gap: 0.4rem 1rem;
+  align-items: baseline;
+  padding: 0.28rem 0;
+}
+.traceResult {
+  text-align: right;
+  color: var(--ink);
+}
+.traceNote {
+  grid-template-columns: 1fr;
+  color: var(--ink-mute);
+  font-style: italic;
+}
+.traceSum {
+  border-top: 1px solid var(--brand-line);
+  margin-top: 0.35rem;
+  padding-top: 0.5rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* ── Summen ────────────────────────────────────────────────────────────── */
+
+.totals {
+  padding: 1.5rem 0 0;
+}
+.totals dl {
+  margin: 0 0 0 auto;
+  max-width: 22rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.4rem 1.5rem;
+}
+.totals > dl > div {
+  display: contents;
+}
+.totals dt {
+  color: var(--ink-mute);
+  font-size: var(--step--1);
+}
+.totals dd {
+  margin: 0;
+  text-align: right;
+}
+.grand dt,
+.grand dd {
+  padding-top: 0.7rem;
+  margin-top: 0.35rem;
+  border-top: 2px solid var(--brand);
+  font-size: var(--step-1);
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* ── Handlung ──────────────────────────────────────────────────────────── */
+
+.act {
+  margin-top: 2.5rem;
+  padding: 1.75rem;
+  background: var(--brand-wash);
+  border: 1px solid var(--brand-line);
+  border-radius: var(--radius);
+}
+.accept {
+  display: block;
+  width: 100%;
+  padding: 0.95rem 1.5rem;
+  background: var(--brand);
+  color: var(--on-brand);
+  border: 0;
+  border-radius: var(--radius);
+  font-size: var(--step-1);
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 120ms ease;
+}
+.accept:hover {
+  filter: brightness(0.93);
+}
+.subline {
+  margin: 0.7rem 0 0;
+  text-align: center;
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+}
+
+.alt {
+  margin-top: 1.75rem;
+  padding-top: 1.35rem;
+  border-top: 1px solid var(--brand-line);
+}
+.altQuestion {
+  margin: 0;
+  font-weight: 600;
+}
+.altBody {
+  margin: 0.15rem 0 0.9rem;
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+}
+.altActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.ghost {
+  padding: 0.55rem 1.05rem;
+  background: transparent;
+  color: var(--brand-ink);
+  border: 1px solid var(--brand-line);
+  border-radius: var(--radius);
+  font-size: var(--step--1);
+  cursor: pointer;
+}
+.ghost:hover {
+  background: var(--paper-raised);
+}
+
+.closed {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+}
+.stateLabel {
+  margin: 0;
+  font-family: var(--display);
+  font-size: var(--step-1);
+  font-weight: 600;
+}
+
+/* ── Rechtliches ───────────────────────────────────────────────────────── */
+
+.legal {
+  margin-top: 2.5rem;
+  padding-top: 1.35rem;
+  border-top: 1px solid var(--line);
+}
+.legal p {
+  margin: 0 0 0.75rem;
+  font-size: var(--step--1);
+  line-height: 1.6;
+  color: var(--ink-mute);
+  max-width: 40rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  .doc {
+    --brand-ink: var(--brand-ink-d);
+    --brand-wash: var(--brand-wash-d);
+    --brand-line: var(--brand-line-d);
+  }
+}
+
+/* ── Phone ─────────────────────────────────────────────────────────────── */
+
+@media (max-width: 40rem) {
+  .thead {
+    display: none;
+  }
+  .row {
+    grid-template-columns: 1fr auto;
+    row-gap: 0.4rem;
+  }
+  .what {
+    grid-column: 1 / -1;
+  }
+  .qty {
+    text-align: left;
+  }
+  /* Unit price is derivable from the trace on a phone; the net is what matters. */
+  .unit {
+    display: none;
+  }
+  .trace li {
+    grid-template-columns: 1fr 6rem;
+  }
+  .trace li > :nth-child(2) {
+    display: none;
+  }
+}
+
+.ident {
+  min-width: 0;
+}

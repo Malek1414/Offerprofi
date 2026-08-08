@@ -27,7 +27,7 @@ create table quote_number_counters (
 alter table quote_number_counters enable row level security;
 alter table quote_number_counters force row level security;
 create policy quote_number_counters_select on quote_number_counters
-  for select to authenticated using (public.is_agency_member(agency_id));
+  for select to app_user using (public.is_agency_member(agency_id));
 
 create or replace function public.allocate_quote_number(target_agency uuid)
 returns text
@@ -166,7 +166,7 @@ begin
     values (
       new.agency_id,
       coalesce(
-        case when auth.uid() is not null then 'user:' || auth.uid()::text end,
+        case when public.current_user_id() is not null then 'user:' || public.current_user_id()::text end,
         'system'
       ),
       'inquiry.state_changed',

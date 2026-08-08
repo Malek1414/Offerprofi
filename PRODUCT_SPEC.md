@@ -37,7 +37,7 @@ Small event agencies (1–5 people) run their entire pre-sale over WhatsApp and 
 | D12 | **WhatsApp** | Meta Cloud API direct. **Deferred from launch, required in the final product** | Removed from critical path; verification track starts day 1 |
 | D13 | **Email** | Forwarding alias + own sending domain at launch. **Gmail OAuth required in the final product** | Alias works with Gmail, Outlook, IONOS, Strato — closes old open question #8 |
 | D14 | Availability | Calendar-aware quoting (read-only Google/Outlook) | Date conflicts resolved before a price is quoted |
-| D15 | Stack | Next.js + Supabase, EU region (Frankfurt) | TS end-to-end, Postgres + RLS, Storage, pgvector |
+| D15 | Stack | Next.js + plain PostgreSQL 15+, EU region | TS end-to-end, Postgres + RLS, pgvector. Revised 2026-08-09; auth and object storage are ours (D29) |
 | D16 | Vertical | Event agencies only | No premature abstraction |
 | D17 | AI processing | Claude API under DPA, no training, zero-retention where available | Named sub-processor in each agency's GDPR record |
 | D18 | Follow-up | Two auto nudges (~48h, ~5d), then owner task | On hosted chat + email: no template approval needed |
@@ -145,7 +145,7 @@ Every transition writes an `audit_log` row with actor (`system` | `agent` | `use
 | Website URL | URL | Optional | Services, packages, published prices, tone |
 | Reference material | Any of the above, bulk | Optional | Extra context |
 
-**Bulk upload:** folder drag-and-drop, up to 50 files / 200 MB per tenant. Files land in Supabase Storage under `tenant/{agency_id}/onboarding/`, one `onboarding_assets` row each, processed asynchronously with per-file progress.
+**Bulk upload:** folder drag-and-drop, up to 50 files / 200 MB per tenant. Files land in S3-compatible object storage (EU) under `tenant/{agency_id}/onboarding/`, one `onboarding_assets` row each, processed asynchronously with per-file progress.
 
 #### 4.1.2 Website crawl rules
 Owner-supplied URL only. Same registrable domain, max 40 pages, depth 3, respects `robots.txt`, 10s per-page timeout. Prioritised paths: `/leistungen`, `/preise`, `/pakete`, `/angebot`, `/services`, `/pricing`, `/ueber-uns`. Extracted content is **candidate** data only.
@@ -192,8 +192,8 @@ This replaces WhatsApp as the launch surface and is why §13 has no blocking dep
 #### 4.2.3 Technical shape
 - Next.js route `/a/{slug}` — server-rendered, mobile-first, no login.
 - Session identified by a signed, HTTP-only cookie plus a resumable link token, so a customer can close the tab and return. **Essential-only cookie — no analytics, no third-party scripts, therefore no consent banner required under TDDDG §25.**
-- Realtime via Supabase Realtime or SSE; agent responses stream.
-- Uploads go straight to Supabase Storage with a signed URL, scanned before processing.
+- Realtime via SSE; agent responses stream.
+- Uploads go straight to object storage with a signed URL, scanned before processing.
 - Email capture is asked for early but is **not** a wall — the customer can converse first. Contact details are required only before the quote is issued.
 - Every turn emits an InboundEvent (§4.9) with `channel: "hosted_chat"`.
 
@@ -578,7 +578,7 @@ Hard cap: 3 automated outbound messages after the quote. On hosted chat and emai
 
 ---
 
-## 10. Data model (Postgres / Supabase)
+## 10. Data model (PostgreSQL)
 
 Every tenant table has `agency_id uuid not null` with an RLS policy scoped to `agency_members`. Workers use the service role and must pass `agency_id` explicitly.
 
@@ -693,14 +693,14 @@ render_quote · send_email · sync_calendar · run_follow_ups · enforce_quota
 ## 12. Security, tenancy and compliance
 
 ### 12.1 Multi-tenancy
-Supabase RLS on every tenant table keyed on `agency_id` via `agency_members`. Storage paths tenant-prefixed with matching policies. **Every worker entry point asserts tenant scope as its first statement.** The public chat route resolves `slug → agency_id` server-side and never accepts an `agency_id` from the client.
+Postgres RLS on every tenant table keyed on `agency_id` via `agency_members`, resolved through `public.current_user_id()` which reads the per-transaction `app.current_user_id` setting. Storage paths tenant-prefixed with matching policies. **Every worker entry point asserts tenant scope as its first statement.** The public chat route resolves `slug → agency_id` server-side and never accepts an `agency_id` from the client.
 
 ### 12.2 Secrets
 OAuth refresh tokens and sending credentials encrypted at rest via envelope encryption with the key in a managed KMS — not in the database, not in committed env files. Rotation and revocation on disconnect.
 
 ### 12.3 GDPR posture
-- **Roles:** processor for end-customer data (agency is controller); controller for agency account data. Art. 28 DPA at signup. Sub-processors: Supabase (EU), Anthropic, Cloudflare, Stripe.
-- **Residency:** Supabase EU (Frankfurt). Note honestly that Anthropic processes extraction content under DPA with no training use (D17).
+- **Roles:** processor for end-customer data (agency is controller); controller for agency account data. Art. 28 DPA at signup. Sub-processors: the Postgres and object-storage hosts (both EU), Anthropic, Cloudflare, Stripe.
+- **Residency:** Postgres and object storage in the EU. Note honestly that Anthropic processes extraction content under DPA with no training use (D17).
 - **Art. 13 duty:** first assistant turn and the chat footer link the agency's privacy notice — first contact is the correct moment.
 - **Retention:** raw payloads 30 days; inquiry data default 24 months post-closure, agency-configurable; deletion within 30 days of request with audit trail.
 - **Data subject requests:** per-contact export and delete, operable by the owner without us.
@@ -769,7 +769,7 @@ Art. 22(1) applies only when **both** conditions hold: the decision is based **s
 | Step | What | Time |
 |---|---|---|
 | 1 | GitHub repo, CI | Minutes |
-| 2 | Supabase project, EU (Frankfurt) — Postgres, auth, storage, RLS | Minutes |
+| 2 | Postgres instance, EU — plus S3-compatible object storage. Confirm pgvector is available | Hours |
 | 3 | Vercel project, custom domain, DNS | Minutes |
 | 4 | Cloudflare domain + Email Routing → Email Worker (inbound mail) | Minutes, free |
 | 5 | Anthropic API key | Minutes |
@@ -832,7 +832,7 @@ Unofficial WhatsApp automation (ToS violation, bans the agency's own number). An
 
 | Phase | Contents | Exit criterion |
 |---|---|---|
-| **0** | Repo, CI, Vercel, Supabase EU, schema, RLS, auth, tenancy tests. Start the §13.2 parallel track on day 1 | A request is tenant-scoped end to end; external clocks are running |
+| **0** | Repo, CI, Vercel, Postgres EU, schema, RLS, auth, tenancy tests. Start the §13.2 parallel track on day 1 | A request is tenant-scoped end to end; external clocks are running |
 | **1** | Canonical envelope + hosted chat (`/a/{slug}`), streaming, uploads, AI disclosure, instant ack | A stranger reaches the link and is acknowledged in < 10s |
 | **2** | Onboarding: bulk upload, crawl, extraction, confirmation UI, catalogue CRUD | An owner reaches a confirmed 5-item catalogue in under 15 minutes, unaided |
 | **3** | Extraction → EventBrief with confidence and the `_contact` partition; in-chat qualifying; detail form | 20 real historical inquiries extract with required fields ≥ 0.8 |

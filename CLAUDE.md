@@ -60,7 +60,7 @@ Each invariant has a corresponding test that must fail loudly on regression.
 | D12 | WhatsApp | Meta Cloud API direct. **Deferred from launch, required in the final product** |
 | D13 | Email | Forwarding alias + own sending domain at launch. **Gmail OAuth required in the final product** |
 | D14 | Availability | Calendar-aware quoting (read-only Google/Outlook) |
-| D15 | Stack | **Next.js + Supabase, EU region (Frankfurt).** TS end-to-end, Postgres + RLS, Storage, pgvector |
+| D15 | Stack | **Next.js + plain PostgreSQL 15+, EU region.** TS end-to-end, Postgres + RLS, pgvector. *Revised 2026-08-09 — was "Next.js + Supabase". See D29 for what this costs* |
 | D16 | Vertical | **Event agencies only.** No premature abstraction |
 | D17 | AI processing | Claude API under DPA, no training, zero-retention where available |
 | D18 | Follow-up | Two auto nudges (~48h, ~5d), then owner task. Stop on reply |
@@ -74,6 +74,7 @@ Each invariant has a corresponding test that must fail loudly on regression.
 | D26 | Monetisation | Stripe subscription, paywall from day one |
 | D27 | Slack | **Owner-side** surface (escalations, one-tap approvals, team coordination). Interim while WhatsApp is pending, and valuable permanently |
 | D28 | Gmail interim path | Testing-mode OAuth with 7-day re-auth **accepted by owner**, with the forwarding alias live underneath as permanent fallback |
+| D29 | Auth and object storage | **Ours, because D15 moved to plain Postgres.** Supabase supplied four things: Postgres, Auth, Storage and `auth.uid()` for RLS. Only the first is replaced for free. Consequences, all now on us: (a) email/password auth and sessions for agency staff; (b) object storage for uploads and logos — S3-compatible, EU region; (c) request-scoped identity via `app.current_user_id`, set per transaction in `src/db/client.ts`; (d) a Postgres with **pgvector available**, which not every managed provider offers. Revised 2026-08-09 |
 
 ---
 
@@ -174,7 +175,7 @@ The hosted chat is a **launch vehicle, not the destination.** All three integrat
 
 | Phase | Contents |
 |---|---|
-| 0 | Repo, CI, Vercel, Supabase EU, schema, RLS, auth, tenancy tests. **Start the §5 external track on day 1** |
+| 0 | Repo, CI, Vercel, Postgres EU, schema, RLS, auth, tenancy tests. **Start the §5 external track on day 1** |
 | 1 | Canonical envelope + hosted chat, streaming, uploads, AI disclosure, instant ack |
 | 2 | Onboarding: bulk upload, crawl, extraction, confirmation UI, catalogue CRUD |
 | 3 | Extraction → EventBrief with confidence and `_contact` partition; in-chat qualifying; detail form |
@@ -215,7 +216,7 @@ The hosted chat is a **launch vehicle, not the destination.** All three integrat
 
 ## 13. Session handoff notes
 
-**Where things stand as of 2026-08-08:** specification complete and revised twice. No repository initialised, no code written. The next action is Phase 0 — repo, Supabase EU project, Vercel, schema with RLS — and starting the §5 external verification track the same day.
+**Where things stand as of 2026-08-08:** specification complete and revised twice. No repository initialised, no code written. The next action is Phase 0 — repo, Postgres EU instance, Vercel, schema with RLS — and starting the §5 external verification track the same day.
 
 **If you are picking this up in a new session:** read this file, then PRODUCT_SPEC.md. Do not re-litigate the decisions in §3 — they were settled through a structured requirements interview with the owner. Do not weaken the invariants in §2. Ask before changing anything in either list.
 
