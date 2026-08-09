@@ -5,9 +5,11 @@ Updated 2026-08-09.
 
 ## Verified working
 
-`npm run verify` — typecheck, lint and **231 tests**, all green. `npm run build` produces
-a clean production build. `npm run dev` then `/q/demo` renders a real quote priced by the
-real engine, and `/a/demo` runs the hosted chat against the real endpoint.
+`npm run verify` — typecheck, lint and **306 tests**, all green. `npm run test:db` applies
+all five migrations to a scratch PostgreSQL and runs **two assertion suites** against it.
+`npm run build` produces a clean production build. `npm run dev` then `/q/demo` renders a
+real quote priced by the real engine, `/a/demo` runs the hosted chat against the real
+endpoint, and `/signup` and `/login` render the owner-side auth surfaces.
 
 Phase 1 was exercised end-to-end against the running dev server, not only in unit tests:
 a first turn streams the disclosure before the ack; a second turn on the same cookie does
@@ -40,6 +42,8 @@ request path, not just in a test).
 | X4 audit log | **Schema** | Trigger writes on every inquiry transition |
 | X5 i18n DE/EN | **Partial** | Quote document and modifier reasons localised, Sie/Du mirrored. Dashboard and email templates not built |
 | X7 invariant CI gate | **Done** | 39 tests across I1–I6 |
+| F0.6 owner auth | **Done** | scrypt hashing, DB-backed revocable sessions, signup/login/logout endpoints, screens S1–S2. 56 tests + 20 DB assertions |
+| F0.7 tenant bootstrap | **Done** | One atomic function writes user + agency + owner membership + slug. Collision returns suggestions, never an error page |
 | F0.3 schema | **Done** | 33 tables, indexes, enums |
 | F0.4 RLS | **Done** | Generated from a list plus a migration-time coverage assertion |
 | F0.8 tenancy tests | **Done** | `npm run test:db` — 8 assertions, executed against real Postgres. Isolation verified in both directions |
@@ -60,6 +64,11 @@ request path, not just in a test).
 
 Everything else in the inventory. Named explicitly rather than left to inference:
 
+- **Phase 0, the rest** — F0.2 a provisioned EU Postgres, F0.5 object storage and its
+  bucket policies, F0.10 Vercel and preview deploys, F0.11 the Anthropic client wrapper,
+  F0.12 feature flags. Auth (F0.6) and tenant bootstrap (F0.7) are now closed; **email
+  verification and password reset are not** — both need outbound email, which is
+  Phase 7. Signup therefore trusts the address until then, and says so.
 - **Phase 2, the rest** — F2.1 bulk upload, F2.2 per-format workers, F2.4 crawl,
   F2.5 BrandProfile candidates, F2.7 QuotePattern, F2.9 catalogue CRUD, F2.10 house
   voice, F2.11 manual fallback, F2.13 guardrail form, and screens S9–S19. The
@@ -109,7 +118,18 @@ Everything else in the inventory. Named explicitly rather than left to inference
 9. **`CHAT_SESSION_SECRET` must be set** or the message endpoint throws. Deliberate —
    a predictable signing key is no key. `.env.local` carries a dev value; production
    needs a real one.
-10. **The chat surface has not been reviewed on a real phone.** It was verified at a
+10. **Signup and login have nowhere to land.** Both redirect to `/onboarding` and
+    `/inbox`, which are Phase 2 and Phase 6 and do not exist — so a successful signup
+    currently ends on a 404. The authentication itself is complete and the cookie is
+    set correctly; what is missing is the destination.
+11. **No email verification and no password reset.** Both need outbound email
+    (Phase 7). Until then an address is trusted as typed, and an owner who forgets her
+    password has no self-service route back in. Stated on the signup screen rather
+    than implied.
+12. **The auth throttle is process-local**, with the same caveat as the chat limiter —
+    it under-counts across instances. Unlike that one it genuinely refuses, so a
+    shared store matters more here before there is a second instance.
+13. **The chat surface has not been reviewed on a real phone.** It was verified at a
     true 980px viewport and by end-to-end request tests. Headless screenshots at
     `--window-size=430` clip the page, but that is an artifact of the layout viewport
     not following the flag — the pre-existing quote page clips identically — not a
@@ -145,5 +165,25 @@ Recorded because they are not in the spec and may want overriding:
   ordering; anything further out, or ahead, is replaced. SLA timers use `receivedAt`.
 - **No CAPTCHA, ever, on customer surfaces.** It would be a third-party script and
   would forfeit the TDDDG §25 no-banner position (F1.12).
+- **There are two rate limiters, and they are deliberately different types.**
+  `src/chat/rate-limit.ts` guards the customer surface and has no variant that can
+  express a refusal — that is Invariant 1 written as a type. `src/auth/throttle.ts`
+  guards our own signup and login and does refuse, which is correct: I1 protects the
+  agency's customers, not anonymous strangers hammering our front door. Merging them
+  would quietly turn I1 from a compiler guarantee into a convention.
+- **Login backs off exponentially rather than locking out.** A lockout is itself an
+  attack — anyone who knows Lisa's email could keep her out of her own dashboard on
+  the morning she needs it.
+- **Signup says plainly that an email is already taken.** The usual advice is to
+  respond identically and send a "someone tried to sign up" mail instead, but that
+  pattern *requires* the mail, and outbound email is Phase 7. The alternative until
+  then is an owner who appears to sign up and then cannot log in, with nothing
+  available to explain it. Login makes the opposite trade and is indistinguishable.
+- **Session expiry is checked with `clock_timestamp()`, not `now()`.** `now()` is the
+  transaction timestamp and does not advance while a transaction runs, so a session
+  that died mid-request would still resolve. Caught by a database assertion.
+- **The slug transliterates rather than strips.** `Schröder` becomes `schroeder`, not
+  `schroder` — in DACH the latter reads as a misspelling of the owner's own name, on a
+  string that ends up printed on a business card.
 - **The idempotency key is not agency-scoped.** One physical message must never be
   admitted twice even if a routing bug attributed it to two tenants.

@@ -63,7 +63,10 @@ describe('F1.5 — cookie signing', () => {
   it('rejects a tampered token', () => {
     const { token } = mintSession(NOW)
     const cookie = signSessionCookie(token, SECRET)
-    const tampered = `x${cookie.slice(1)}`
+    // Substituting a fixed character would leave the cookie untouched roughly one run
+    // in sixty-four, when the token already began with it — a test that passes because
+    // nothing was tampered with. Pick the replacement relative to what is there.
+    const tampered = (cookie[0] === 'x' ? 'y' : 'x') + cookie.slice(1)
     expect(verifySessionCookie(tampered, SECRET)).toBeNull()
   })
 

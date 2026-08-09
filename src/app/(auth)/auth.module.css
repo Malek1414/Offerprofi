@@ -1,0 +1,262 @@
+/*
+ * Owner-facing authentication surfaces (S1 signup, S2 login, S3 create agency).
+ *
+ * These are ours, not the agency's — the theming chassis in src/lib/theme.ts does not
+ * apply here, because at signup there is no BrandProfile yet and at login we do not
+ * know whose brand to wear. So this is the one place in the product that uses the
+ * achromatic defaults from globals.css exactly as they come.
+ *
+ * Single column, narrow measure, no illustration, no marketing. Lisa is signing up on
+ * a phone between two viewings; the fastest possible path from "I clicked the link"
+ * to "I am in" is the whole design.
+ */
+
+.page {
+  min-height: 100dvh;
+  display: grid;
+  /* Not centred vertically: on a phone the keyboard takes half the viewport, and a
+   * vertically centred form jumps as it opens. Anchored near the top, it does not. */
+  align-content: start;
+  justify-items: center;
+  padding: clamp(1.5rem, 6vw, 4rem) 1.25rem 4rem;
+  background: var(--paper-sunk);
+}
+
+.card {
+  width: 100%;
+  max-width: 27rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: clamp(1.5rem, 5vw, 2.25rem);
+}
+
+.masthead {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.wordmark {
+  font-family: var(--display);
+  font-size: var(--step-1);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.title {
+  font-family: var(--display);
+  font-size: var(--step-2);
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  margin: 0 0 0.4rem;
+}
+
+.lede {
+  color: var(--ink-mute);
+  font-size: var(--step--1);
+  line-height: 1.5;
+  margin: 0 0 1.75rem;
+}
+
+.field {
+  display: block;
+  margin-bottom: 1.1rem;
+}
+
+.label {
+  display: block;
+  font-size: var(--step--1);
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin-bottom: 0.35rem;
+}
+
+.hint {
+  display: block;
+  font-weight: 400;
+  color: var(--ink-mute);
+  margin-top: 0.15rem;
+}
+
+.input {
+  width: 100%;
+  /* 16px minimum, in absolute terms: iOS Safari zooms the whole page on focus for
+   * anything smaller, and the layout never zooms back out. */
+  font-size: max(1rem, var(--step-0));
+  font-family: var(--body);
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  padding: 0.7rem 0.75rem;
+  /* Without this the border is drawn outside the 100% width and the field overflows
+   * its card by two pixels on the right — visible on a narrow phone. */
+  box-sizing: border-box;
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+  border-color: var(--ink);
+}
+
+.input[aria-invalid='true'] {
+  border-color: var(--warn-ink);
+}
+
+.fieldError {
+  display: block;
+  font-size: var(--step--1);
+  color: var(--warn-ink);
+  margin-top: 0.3rem;
+}
+
+/* The slug preview. Shows the customer-facing URL as it is being typed, because it is
+ * the string that ends up on a business card and it is effectively permanent. */
+.preview {
+  /* Block, not inline. A long agency name wraps the URL onto a second line, and an
+   * inline element draws its background and padding per line box — the panel breaks
+   * into ragged fragments and the padding lands only at the very start and end of the
+   * run. Visible with any name past about thirty characters. */
+  display: block;
+  font-family: var(--mono);
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+  background: var(--paper-sunk);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.6rem;
+  margin-top: 0.45rem;
+  /* A long agency name makes a long URL; wrap rather than push the card wider. */
+  overflow-wrap: anywhere;
+}
+
+.previewOwn {
+  color: var(--ink-soft);
+}
+
+.submit {
+  width: 100%;
+  font-family: var(--body);
+  font-size: var(--step-0);
+  font-weight: 600;
+  color: var(--paper-raised);
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  padding: 0.8rem 1rem;
+  cursor: pointer;
+  margin-top: 0.5rem;
+}
+
+.submit:hover:not(:disabled) {
+  background: var(--ink-soft);
+  border-color: var(--ink-soft);
+}
+
+.submit:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.submit:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/*
+ * Form-level failure. Deliberately not styled as an alarm: the overwhelmingly common
+ * cause is a mistyped password, and a red panel for that is disproportionate.
+ */
+.formError {
+  font-size: var(--step--1);
+  line-height: 1.5;
+  color: var(--warn-ink);
+  background: var(--warn-wash);
+  border: 1px solid var(--warn-ink);
+  border-radius: var(--radius);
+  padding: 0.65rem 0.75rem;
+  margin-bottom: 1.1rem;
+}
+
+/*
+ * Slug collision (F0.7). Not an error panel — an offer. Same visual weight as a
+ * hint, because "that one is taken, here are three that are free" is information,
+ * not a failure the owner caused.
+ */
+.suggestions {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper-sunk);
+  padding: 0.75rem;
+  margin-bottom: 1.1rem;
+}
+
+.suggestionsLede {
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+  margin: 0 0 0.55rem;
+}
+
+.suggestionList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.suggestion {
+  font-family: var(--mono);
+  font-size: var(--step--1);
+  color: var(--ink);
+  background: var(--paper-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  padding: 0.35rem 0.55rem;
+  cursor: pointer;
+}
+
+.suggestion:hover {
+  border-color: var(--ink);
+}
+
+.suggestion:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+.alt {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+  text-align: center;
+}
+
+.alt a {
+  color: var(--ink);
+}
+
+.legal {
+  margin-top: 1.5rem;
+  font-size: var(--step--1);
+  line-height: 1.5;
+  color: var(--ink-faint);
+  text-align: center;
+  max-width: 27rem;
+}
+
+.legal a {
+  color: var(--ink-mute);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .submit,
+  .suggestion,
+  .input {
+    transition: background-color 120ms ease, border-color 120ms ease;
+  }
+}
