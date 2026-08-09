@@ -1,5 +1,5 @@
 /**
- * Persisting an EventBrief and its provenance (F3.3, F3.5).
+ * Persisting a CateringRequest and its provenance (F3.3, F3.5).
  *
  * One call to `record_event_brief` (db/migrations/0009), which is SECURITY DEFINER
  * because extraction runs while a customer is in the chat and a customer has no
@@ -21,23 +21,23 @@
  */
 
 import { asAnonymous } from '../db/client'
-import type { ContactPartition, EventBrief } from '../domain/event-brief'
+import type { CateringRequest, ContactPartition } from '../domain/catering-request'
 import { hasDatabase } from '../lib/demo'
 import type { ExtractionRecord } from './extraction'
 
-export interface StoreBriefRequest {
+export interface StoreRequestInput {
   agencyId: string
   inquiryId: string
-  brief: EventBrief
+  request: CateringRequest
   contact: ContactPartition
   extractions: readonly ExtractionRecord[]
 }
 
 /** True when the brief was written; false when there was no database to write to. */
-export async function storeEventBrief(request: StoreBriefRequest): Promise<boolean> {
+export async function storeCateringRequest(input: StoreRequestInput): Promise<boolean> {
   if (!hasDatabase()) return false
 
-  const rows = request.extractions.map((e) => ({
+  const rows = input.extractions.map((e) => ({
     field_path: e.fieldPath,
     value: e.value,
     confidence: e.confidence,
@@ -49,12 +49,12 @@ export async function storeEventBrief(request: StoreBriefRequest): Promise<boole
       `select public.record_event_brief(
          $1::uuid, $2::uuid, $3::jsonb, $4::jsonb, $5::numeric, $6::numeric, $7::jsonb, 'ai')`,
       [
-        request.agencyId,
-        request.inquiryId,
-        JSON.stringify(request.brief),
-        JSON.stringify(request.contact),
-        request.brief.meta.completeness,
-        request.brief.meta.overallConfidence,
+        input.agencyId,
+        input.inquiryId,
+        JSON.stringify(input.request),
+        JSON.stringify(input.contact),
+        input.request.meta.completeness,
+        input.request.meta.overallConfidence,
         JSON.stringify(rows),
       ],
     )

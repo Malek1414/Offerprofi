@@ -1,47 +1,52 @@
 /**
- * The EventBrief — structured output of extraction (PRODUCT_SPEC §4.10).
+ * The EventBrief — the shape the pricing engine consumes (PRODUCT_SPEC §4.10).
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * INVARIANT 2 LIVES HERE.
+ * THIS IS NO LONGER WHAT EXTRACTION PRODUCES.
  *
- * The spec renders the brief as one JSON object with a `_contact` key. In the type
- * system it is two disjoint types that never merge, because "we agreed not to pass
- * contact details to pricing" is a convention, and conventions decay. A type that
- * cannot express the mistake does not.
+ * Under the current spec a customer describes a **catering request** and never sees
+ * a price; the caterer is the first party to attach money. What the AI fills in is
+ * therefore `CateringRequest` (see catering-request.ts). This type is what the
+ * *owner-side* price suggestion is computed from — the engine's input shape, kept
+ * exactly as it was because it is finished, golden-set tested, and there is no
+ * reason to disturb a tested pure function to rename a field.
  *
- *   EventBrief         event attributes only — date, guests, hours, km, services
- *   ContactPartition   name, email, phone, company, VAT id, role
- *
- * `EventBrief` has no contact field, so `toPricingInput()` (see pricing-input.ts)
- * cannot forward one even by accident. There is no cast, no `Omit<>`, no runtime
- * strip step that someone can forget to call. The storage layer keeps them in two
- * columns (`event_briefs.brief_json` / `event_briefs.contact_json`) so the separation
- * survives a round-trip through the database too.
- *
- * Consequence: no price can vary by any characteristic of a person, so no profiling
- * occurs, so GDPR Art. 22 does not engage on that limb. A reviewer verifies this by
- * reading two type definitions rather than auditing a codebase.
+ * The shared vocabulary both types agree on — `Extracted<T>`, confidence policy,
+ * `ContactPartition` — moved to extracted.ts and is re-exported here so the ten
+ * files that import `Language` from this path keep working.
  * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * INVARIANT 2: `EventBrief` has no contact field, so `toPricingInput()` cannot
+ * forward one even by accident. There is no cast, no `Omit<>`, no runtime strip step
+ * that someone can forget to call. The storage layer keeps the two halves in two
+ * columns so the separation survives a round trip through the database too.
  */
 
 import type { CatalogItemId } from './catalogue'
+import {
+  type ConfidenceVerdict,
+  type Extracted,
+  type Formality,
+  type Language,
+  evaluateFields,
+} from './extracted'
 
-/** Where a value came from. Owner and form values are authoritative (confidence 1.0). */
-export type ExtractionSource = 'ai' | 'form' | 'owner' | 'customer_confirm'
-
-/** Every extracted value carries its confidence and provenance. Nothing is bare. */
-export interface Extracted<T> {
-  value: T
-  confidence: number
-  /** Message id, asset id, or form field the value came from. */
-  source?: string
-  sourceKind?: ExtractionSource
-}
+export {
+  AUTO_SEND_OVERALL_CONFIDENCE,
+  AUTO_SEND_REQUIRED_CONFIDENCE,
+  NEVER_GUESS_BELOW,
+  mergeExtracted,
+} from './extracted'
+export type {
+  ConfidenceVerdict,
+  ContactPartition,
+  Extracted,
+  ExtractionSource,
+  Formality,
+  Language,
+} from './extracted'
 
 export type EventType = 'wedding' | 'corporate' | 'equipment_rental' | 'birthday' | 'other'
-
-export type Language = 'de' | 'en'
-export type Formality = 'du' | 'sie' | 'unknown'
 
 /**
  * Event attributes. Deliberately contains nothing about a person.
@@ -76,32 +81,15 @@ export interface BriefMeta {
   overallConfidence: number
 }
 
-/**
- * Personal data. Lives in its own column, its own type, and its own access path.
- *
- * Used for addressing the customer, rendering the quote header, and fulfilling data
- * subject requests. Never used to decide anything.
- */
-export interface ContactPartition {
-  name?: string
-  email?: string
-  phoneE164?: string
-  role?: string
-  company?: string
-  vatId?: string
-}
-
 /** The stored row. The only place the two halves sit side by side — and even here they do not merge. */
 export interface StoredBrief {
   inquiryId: string
   brief: EventBrief
-  contact: ContactPartition
+  contact: import('./extracted').ContactPartition
   completeness: number
   overallConfidence: number
   updatedAt: string
 }
-
-// ── Confidence policy (spec §4.10) ───────────────────────────────────────────
 
 export const REQUIRED_FIELDS: Readonly<Record<EventType, readonly (keyof EventBrief)[]>> = {
   wedding: ['eventDate', 'guestCount', 'location', 'servicesRequested'],
@@ -111,68 +99,13 @@ export const REQUIRED_FIELDS: Readonly<Record<EventType, readonly (keyof EventBr
   other: ['eventDate', 'servicesRequested'],
 }
 
-export const AUTO_SEND_REQUIRED_CONFIDENCE = 0.8
-export const AUTO_SEND_OVERALL_CONFIDENCE = 0.75
-export const NEVER_GUESS_BELOW = 0.5
-
-export type ConfidenceVerdict =
-  | { action: 'auto_price' }
-  | { action: 'confirm'; fields: (keyof EventBrief)[] }
-  | { action: 'ask'; fields: (keyof EventBrief)[] }
-
-function confidenceOf(brief: EventBrief, field: keyof EventBrief): number | undefined {
-  const v = brief[field]
-  if (v === undefined || v === null) return undefined
-  if (Array.isArray(v)) {
-    if (v.length === 0) return undefined
-    // A list is only as trustworthy as its least certain member.
-    return Math.min(...v.map((e) => (e as Extracted<unknown>).confidence ?? 0))
-  }
-  if (typeof v === 'object' && 'confidence' in v) return (v as Extracted<unknown>).confidence
-  return undefined
-}
-
-/**
- * Decide whether extraction is good enough to price and send unattended.
- *
- * Missing entirely and present-but-uncertain are treated the same way on purpose:
- * both mean we do not know, and guessing at a wedding date is worse than asking.
- */
-export function evaluateConfidence(brief: EventBrief): ConfidenceVerdict {
-  const eventType = brief.eventType?.value ?? 'other'
-  const required = REQUIRED_FIELDS[eventType]
-
-  const ask: (keyof EventBrief)[] = []
-  const confirm: (keyof EventBrief)[] = []
-
-  for (const field of required) {
-    const c = confidenceOf(brief, field)
-    if (c === undefined || c < NEVER_GUESS_BELOW) {
-      ask.push(field)
-    } else if (c < AUTO_SEND_REQUIRED_CONFIDENCE) {
-      confirm.push(field)
-    }
-  }
-
-  if (ask.length > 0) return { action: 'ask', fields: ask }
-  if (confirm.length > 0) return { action: 'confirm', fields: confirm }
-  if (brief.meta.overallConfidence < AUTO_SEND_OVERALL_CONFIDENCE) {
-    return { action: 'confirm', fields: required.slice(0, 1) }
-  }
-  return { action: 'auto_price' }
-}
-
-/**
- * Owner- and form-supplied values always win (spec §4.10). Applied when merging a
- * later extraction over an earlier one so a model can never overwrite a human.
- */
-export function mergeExtracted<T>(
-  existing: Extracted<T> | undefined,
-  incoming: Extracted<T>,
-): Extracted<T> {
-  if (!existing) return incoming
-  const existingIsHuman = existing.sourceKind === 'owner' || existing.sourceKind === 'form'
-  const incomingIsHuman = incoming.sourceKind === 'owner' || incoming.sourceKind === 'form'
-  if (existingIsHuman && !incomingIsHuman) return existing
-  return incoming
+/** Decide whether a brief is good enough to price and send unattended. */
+export function evaluateConfidence(brief: EventBrief): ConfidenceVerdict<keyof EventBrief & string> {
+  const required = REQUIRED_FIELDS[brief.eventType?.value ?? 'other'] as readonly (keyof EventBrief &
+    string)[]
+  return evaluateFields(
+    brief as unknown as Record<string, unknown>,
+    required,
+    brief.meta.overallConfidence,
+  )
 }
