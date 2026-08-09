@@ -860,4 +860,138 @@ end $$;
 
 reset role;
 
+-- ─── 0013: the two WhatsApp mitigations ─────────────────────────────────────
+--
+-- These are the assertions that protect the agency's own phone number — the one
+-- their livelihood runs through. The provider is unofficial (N3) and Meta's
+-- enforcement keys on the traffic pattern, so "we only message people who
+-- messaged us" and "no more than N new conversations a day" have to be properties
+-- of the schema, not rules in a code review.
+
+insert into whatsapp_accounts (id, agency_id, provider_account_id, display_phone, daily_new_thread_cap)
+values ('cccccccc-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000001',
+        'unipile-acct-1', '+4922100000', 2);
+
+set role app_login;
+
+do $$
+declare
+  agency uuid := 'aaaaaaaa-0000-0000-0000-000000000001';
+  gate record;
+  inbound record;
+begin
+  perform set_config('app.current_user_id', '', false);
+
+  -- MITIGATION 1. Nobody has written to us from this number.
+  select * into gate from public.may_send_to_thread(agency, '+4915100000001');
+  if gate.allowed then
+    raise exception 'MITIGATION 1: a send was permitted to a number that never wrote to us';
+  end if;
+  if gate.reason <> 'no_inbound_message' then
+    raise exception 'MITIGATION 1: expected no_inbound_message, got %', gate.reason;
+  end if;
+  raise notice 'PASS mitigation 1 — no inbound message, no send';
+
+  -- She opens the thread herself, via the wa.me deep link.
+  select * into inbound from public.record_whatsapp_inbound(
+    'unipile-acct-1', '+4915100000001', 'customer', 'chat-1');
+  if inbound.agency_id <> agency then
+    raise exception 'Phase E: the account resolved to the wrong tenant';
+  end if;
+  if not inbound.is_new_thread then
+    raise exception 'Phase E: the first inbound did not open a thread';
+  end if;
+
+  select * into gate from public.may_send_to_thread(agency, '+4915100000001');
+  if not gate.allowed then
+    raise exception 'Phase E: a send was refused after she wrote to us: %', gate.reason;
+  end if;
+  raise notice 'PASS mitigation 1 — an inbound message is what grants permission';
+
+  -- A second inbound is the same thread, and keeps the time it was opened.
+  select * into inbound from public.record_whatsapp_inbound(
+    'unipile-acct-1', '+4915100000001', 'customer', 'chat-1');
+  if inbound.is_new_thread then
+    raise exception 'Phase E: a second message from the same number opened a second thread';
+  end if;
+
+  -- MITIGATION 2, the cap. Two is the fixture's limit; this is the third.
+  perform public.record_whatsapp_inbound('unipile-acct-1', '+4915100000002', 'customer', 'chat-2');
+  perform public.record_whatsapp_inbound('unipile-acct-1', '+4915100000003', 'customer', 'chat-3');
+
+  select * into gate from public.may_send_to_thread(agency, '+4915100000003');
+  if gate.allowed then
+    raise exception 'MITIGATION 2: the daily new-thread cap did not hold';
+  end if;
+  if gate.reason <> 'daily_cap_reached' then
+    raise exception 'MITIGATION 2: expected daily_cap_reached, got %', gate.reason;
+  end if;
+  raise notice 'PASS mitigation 2 — the daily new-thread cap holds';
+
+  -- The owner's own thread is not a new customer contact. He linked the account;
+  -- the cap exists to stop us spraying strangers, not to stop him being told.
+  perform public.record_whatsapp_inbound('unipile-acct-1', '+4922100000', 'owner', 'chat-owner');
+  select * into gate from public.may_send_to_thread(agency, '+4922100000');
+  if not gate.allowed then
+    raise exception 'Phase E: the owner could not be notified on his own thread: %', gate.reason;
+  end if;
+  raise notice 'PASS Phase E — the owner''s own thread is not capped';
+
+  -- An unknown account is silence, not an exception: Unipile retries forever.
+  select * into inbound from public.record_whatsapp_inbound(
+    'unipile-acct-nobody', '+4915100000009', 'customer', 'chat-x');
+  if inbound.agency_id is not null then
+    raise exception 'Phase E: an unknown provider account resolved to a tenant';
+  end if;
+  raise notice 'PASS Phase E — an unknown account is ignored, not an error';
+end $$;
+
+reset role;
+
+-- MITIGATION 2, the kill switch. Flipped from a psql prompt, which is exactly how
+-- it would be flipped at 2am, and the point of it being a column.
+update whatsapp_accounts
+   set sending_paused = true, paused_reason = 'meta_warning'
+ where provider_account_id = 'unipile-acct-1';
+
+set role app_login;
+
+do $$
+declare
+  gate record;
+begin
+  perform set_config('app.current_user_id', '', false);
+
+  select * into gate from public.may_send_to_thread(
+    'aaaaaaaa-0000-0000-0000-000000000001', '+4915100000001');
+  if gate.allowed then
+    raise exception 'MITIGATION 2: the kill switch did not stop an established thread';
+  end if;
+  if gate.reason <> 'meta_warning' then
+    raise exception 'MITIGATION 2: expected the operator''s reason, got %', gate.reason;
+  end if;
+  raise notice 'PASS mitigation 2 — the kill switch stops even an established thread';
+end $$;
+
+reset role;
+
+do $$
+declare
+  visible int;
+begin
+  -- F0.4 on the new tables.
+  perform set_config('app.current_user_id',
+    (select u.id::text from users u where u.email = 'markus@example.test'), false);
+  set local role app_user;
+  select count(*) into visible from whatsapp_threads;
+  if visible <> 0 then
+    raise exception 'F0.4: another tenant read % whatsapp_threads rows', visible;
+  end if;
+  select count(*) into visible from whatsapp_accounts;
+  if visible <> 0 then
+    raise exception 'F0.4: another tenant read % whatsapp_accounts rows', visible;
+  end if;
+  raise notice 'PASS F0.4 — WhatsApp accounts and threads are not readable across tenants';
+end $$;
+
 select 'ALL DATABASE ASSERTIONS PASSED' as result;

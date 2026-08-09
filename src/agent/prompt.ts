@@ -29,6 +29,16 @@ export type UntrustedSource =
   | 'customer_document'
   | 'customer_attachment'
   | 'crawled_page'
+  /**
+   * The caterer's own dictated reply (Phase E).
+   *
+   * He is a trusted person and this is still untrusted *text*: it arrives through
+   * a third-party webhook we do not control, and the framing is what stops a
+   * forwarded customer message inside his reply from reading as an instruction.
+   * Treating one text channel as trusted and another as not is how the escaping
+   * eventually gets skipped on the wrong one.
+   */
+  | 'owner_message'
 
 export interface UntrustedDocument {
   /** Stable identifier so the model can cite provenance per extracted field (F3.3). */
