@@ -32,6 +32,7 @@ import { storeCateringRequest } from '../agent/brief-store'
 import { extractRequest } from '../agent/extraction'
 import { loadAgencyFacts } from '../agent/facts'
 import { qualify } from '../agent/qualify'
+import { asSnippets, searchKnowledge } from '../knowledge/repository'
 import type { CateringRequest, RequiredRequestField } from '../domain/catering-request'
 import type { ContactPartition } from '../domain/extracted'
 import type { Formality, Language } from '../domain/event-brief'
@@ -139,6 +140,11 @@ export async function runQualifyingTurn(input: QualifyingTurnInput): Promise<Age
   // still has a working conversation.
   const facts = await loadAgencyFacts(input.agencyId)
 
+  // Phase C, retrieval half. Searched on what she just wrote, because that is
+  // what the next question has to be about. Empty before any document is
+  // ingested, and empty is fine — the questions are simply more generic.
+  const snippets = asSnippets(await searchKnowledge(input.agencyId, input.message.text))
+
   const outcome = await qualify({
     agencyId: input.agencyId,
     inquiryId: input.inquiryId,
@@ -146,7 +152,7 @@ export async function runQualifyingTurn(input: QualifyingTurnInput): Promise<Age
     messages,
     agencyName: input.agencyName,
     ownerName: input.ownerName,
-    facts,
+    facts: [...facts, ...snippets],
   })
 
   if (!outcome.ok) {

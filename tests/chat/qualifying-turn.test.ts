@@ -29,6 +29,10 @@ vi.mock('../../src/agent/qualify', () => ({
 vi.mock('../../src/agent/facts', () => ({
   loadAgencyFacts: () => Promise.resolve(['Mindestbestellung ab 20 Personen.']),
 }))
+vi.mock('../../src/knowledge/repository', () => ({
+  searchKnowledge: () => Promise.resolve([]),
+  asSnippets: () => [],
+}))
 vi.mock('../../src/agent/brief-store', () => ({
   storeCateringRequest: (...args: unknown[]) => storeCateringRequest(...args),
 }))

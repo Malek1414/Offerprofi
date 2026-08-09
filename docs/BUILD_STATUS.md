@@ -5,8 +5,8 @@ Updated 2026-08-09.
 
 ## Verified working
 
-`npm run verify` — typecheck, lint and **498 tests**, all green. `npm run test:db` applies
-all eleven migrations to a scratch PostgreSQL and runs **two assertion suites** against it.
+`npm run verify` — typecheck, lint and **580 tests**, all green. `npm run test:db` applies
+all fifteen migrations to a scratch PostgreSQL and runs **two assertion suites** against it.
 `npm run build` produces a clean production build. `npm run dev` then `/q/demo` renders a
 real quote priced by the real engine, `/a/{slug}` runs the hosted chat for **any real
 tenant** against the real endpoint, and `/signup` and `/login` render the owner-side auth
@@ -68,6 +68,8 @@ request path, not just in a test).
 | F3.7/F3.9/F3.10 qualifying loop, wired | **Done** | `src/chat/qualifying-turn.ts` — one turn runs extraction, stores the request, then asks at most two questions the model wrote from the fields code says are missing. Streams on the same connection as the ack, always behind it. Every failure path ends in a handoff to a person, never a refusal (I1, I5) |
 | F5.2/F5.3 request document (Phase D) | **Done** | `/r/{token}` — two documents from one route, self-contained HTML, no external origin, dark and print variants. The customer's copy carries no money and no contact details, enforced by the query (0011), by `requestRows` and by a grep over the rendered page |
 | Phase D send | **Done** | `POST /api/chat/{slug}/send` — hers to press, idempotent, and it never refuses a thin or escalated request. Mints two unrelated tokens, stores hashes only, walks the inquiry to `sent_to_owner` |
+| Phase C — structured facts | **Done** | `agency_facts` + `facts_for_agent`. Confirmed rows only (F2.8), read as data, never ranked. Wired into the qualifying loop |
+| Phase C — retrieval | **Done, sparse only** | Migration 0015 + `src/knowledge/`. German `tsvector` over context-prefix + body, fused with trigram. Contextual prefixes are one model call per document. **No pgvector**: the dense column is a later `alter table`, and a 5-case golden set lives in `db/tests/tenancy.sql` because the ranking is SQL |
 | Qualifying-loop storage | **Done** | Migration 0010: `conversation_context` (the bounded state one turn is given, fixed column list) and `record_agent_progress`, whose outcome argument admits exactly two values — Invariant 1 in a function signature. Six database assertions |
 | F3.6 confidence policy | **Done** | `evaluateConfidence()` implements the §4.10 table |
 | F4.1 `PricingInput` + pure function | **Done** | No I/O, no model call, no personal field. Purity asserted by test |

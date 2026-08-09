@@ -1049,4 +1049,85 @@ end $$;
 
 reset role;
 
+-- ─── 0015: retrieval, and a small golden set ────────────────────────────────
+--
+-- The plan asks for ~20 questions against one caterer's documents before Phase C
+-- is called done. This is the start of that set, and it lives here rather than in
+-- vitest because the ranking *is* SQL — a TypeScript test would be asserting
+-- against a mock of the thing under test.
+--
+-- Each case is a question someone would really ask, and the assertion is that the
+-- right chunk comes back first.
+
+insert into knowledge_documents (id, agency_id, source_name, body_text)
+values ('eeeeeeee-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000001',
+        'Angebot Müller Juni 2025.pdf', 'siehe chunks');
+
+insert into knowledge_chunks (agency_id, document_id, ordinal, body_text, context_prefix)
+values
+  ('aaaaaaaa-0000-0000-0000-000000000001', 'eeeeeeee-0000-0000-0000-00000000000a', 0,
+   'Buffet Klassik, 60 Gäste, drei Gänge, 72 EUR pro Person. Vorspeisenvariation, '
+   'zwei Hauptgänge, Dessertbuffet.',
+   'Aus dem Angebot für die Hochzeit Müller, Juni 2025, Abschnitt Menü.'),
+  ('aaaaaaaa-0000-0000-0000-000000000001', 'eeeeeeee-0000-0000-0000-00000000000a', 1,
+   'Servicepersonal: vier Kräfte über sechs Stunden, 42 EUR pro Stunde.',
+   'Aus dem Angebot für die Hochzeit Müller, Juni 2025, Abschnitt Personal.'),
+  ('aaaaaaaa-0000-0000-0000-000000000001', 'eeeeeeee-0000-0000-0000-00000000000a', 2,
+   'Auf Wunsch bauen wir eine Paella Station mit zwei Pfannen auf.',
+   'Aus dem Angebot für die Hochzeit Müller, Juni 2025, Abschnitt Extras.');
+
+set role app_login;
+
+do $$
+declare
+  agency uuid := 'aaaaaaaa-0000-0000-0000-000000000001';
+  top record;
+  hits int;
+begin
+  perform set_config('app.current_user_id', '', false);
+
+  -- 1. German stemming: "veganer" is not in the text, but "Hauptgängen" stems to
+  --    the same lexeme as "Hauptgänge".
+  select * into top from public.search_knowledge(agency, 'wie viele Hauptgängen', 1);
+  if top.body_text not like '%Hauptgänge%' then
+    raise exception 'Phase C: stemming failed, got %', top.body_text;
+  end if;
+  raise notice 'PASS Phase C — German stemming finds an inflected form';
+
+  -- 2. The question uses a word that appears only in the *prefix*, not the chunk.
+  --    This is the whole point of Contextual Retrieval: the chunk about staff
+  --    never says "Hochzeit", and without the sticky note it is unfindable.
+  select * into top from public.search_knowledge(agency, 'Personal Hochzeit', 1);
+  if top.body_text not like '%Servicepersonal%' then
+    raise exception 'Phase C: the context prefix is not searchable, got %', top.body_text;
+  end if;
+  raise notice 'PASS Phase C — a chunk is found by the context it was filed under';
+
+  -- 3. Hyphenation, which stemming cannot solve: she writes "Paella-Station",
+  --    the document says "Paella Station". No shared lexeme; trigram catches it.
+  select * into top from public.search_knowledge(agency, 'Paella-Station', 1);
+  if top.body_text not like '%Paella%' then
+    raise exception 'Phase C: trigram did not bridge the hyphen, got %', top.body_text;
+  end if;
+  raise notice 'PASS Phase C — trigram bridges a hyphen stemming cannot';
+
+  -- 4. A question about nothing in the corpus returns nothing, rather than the
+  --    least-bad chunk. A confidently irrelevant snippet is worse than silence.
+  select count(*) into hits from public.search_knowledge(agency, 'Feuerwerk Drohnenshow', 5);
+  if hits <> 0 then
+    raise exception 'Phase C: an unrelated question matched % chunks', hits;
+  end if;
+  raise notice 'PASS Phase C — an unrelated question returns nothing, not the least-bad chunk';
+
+  -- 5. F0.4. The definer is scoped by its argument and nothing else.
+  select count(*) into hits
+    from public.search_knowledge('bbbbbbbb-0000-0000-0000-000000000002', 'Buffet', 5);
+  if hits <> 0 then
+    raise exception 'F0.4: search_knowledge returned another tenant''s chunks';
+  end if;
+  raise notice 'PASS F0.4 — retrieval is scoped to the agency it is asked about';
+end $$;
+
+reset role;
+
 select 'ALL DATABASE ASSERTIONS PASSED' as result;

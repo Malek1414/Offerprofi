@@ -49,8 +49,8 @@
 > 5. ~~**Phase F** — `/inbox` and the onboarding rewrite.~~ **Inbox done 2026-08-09**;
 >    the onboarding rewrite (upload → review facts → link WhatsApp) still waits on object
 >    storage.
-> 6. **Phase C, the retrieval half** — the only phase still substantially unbuilt, and it is
->    blocked on infrastructure rather than on design. See below.
+> 6. ~~**Phase C, the retrieval half**~~ — **built 2026-08-09 without pgvector.** See
+>    "Phase C shipped without a vector database" below for what that cost and what is left.
 >
 > Deferred but now unavoidable: object storage (30+ PDFs, uploads, voice notes), and a small
 > always-on worker container, because whisper.cpp and a model file cannot run in a serverless
@@ -112,6 +112,74 @@
 > `npm run dev`. Sign in as `johannes@krautundrueben.test` / `DemoPasswort2026!`,
 > customer chat at `/a/kraut-und-rueben`.
 
+> ## Phase C shipped without a vector database — 2026-08-09
+>
+> The three blockers were not one blocker, and two of them dissolved on inspection.
+>
+> **Object storage was never actually required.** It was on the critical path only because
+> the plan assumed we keep 30 PDFs. We do not need the PDF, we need its text: parse at
+> upload, chunk, discard the binary. That removes the bucket *and* the worker container from
+> this path, and it improves the GDPR answer rather than weakening it — there is no document
+> store to disclose, subject-access or delete. `source_name` is kept so a hit can say where
+> it came from; a filename is not a file.
+>
+> **pgvector is a production provider constraint, not a local one** (`brew install pgvector`
+> takes seconds; D29d already flags that not every managed Postgres offers it). So the dense
+> half is deferred and the sparse half ships.
+>
+> ### What is built (migration 0015, `src/knowledge/`)
+>
+> - `knowledge_documents` + `knowledge_chunks`, with a **generated** `tsvector` over
+>   `context_prefix || body_text` using Postgres' built-in **German** dictionary, GIN-indexed,
+>   plus a trigram index on the raw body.
+> - `search_knowledge()` fuses two rankers by taking the **greater** of `ts_rank_cd` and a
+>   scaled trigram similarity — not the sum, so a chunk strong on one is not diluted by
+>   scoring zero on the other.
+> - `chunkDocument()` splits on paragraphs first, sentences second, characters only as a last
+>   resort. Each fallback is worse than the one before, so each is reached only when the
+>   better one cannot apply.
+> - `contextualisePrefixes()` — **one model call per document, not per chunk**, with the whole
+>   parent document in context. This is the part of Contextual Retrieval that does the most
+>   work and it needs no pgvector.
+> - Retrieval is wired into the qualifying turn beside the confirmed facts.
+>
+> ### The golden set, and why it is SQL
+>
+> Five cases in `db/tests/tenancy.sql`, not vitest — **the ranking *is* SQL, so a TypeScript
+> test would assert against a mock of the thing under test.** They pass:
+>
+> 1. German stemming finds "Hauptgängen" in a chunk saying "Hauptgänge".
+> 2. **A chunk is found by a word that appears only in its prefix.** The staffing chunk never
+>    says "Hochzeit"; without the sticky note it is unfindable. This is the whole thesis of
+>    Contextual Retrieval, demonstrated.
+> 3. Trigram bridges "Paella-Station" → "Paella Station", which shares no lexeme.
+> 4. An unrelated question ("Feuerwerk Drohnenshow") returns **nothing**, not the least-bad
+>    chunk. A confidently irrelevant snippet is worse than silence.
+> 5. F0.4 — the definer is scoped by its argument and nothing else.
+>
+> ### Honest about the gap
+>
+> Hybrid dense + sparse with reranking is better than sparse alone; that is not in dispute
+> and this is not a claim that it does not matter. Two things make it a smaller compromise
+> than it sounds. The corpus is ~30 documents of one caterer's German food writing, where
+> stemmed keyword + trigram is genuinely competitive — dense earns its keep on large
+> heterogeneous corpora. And **the expensive-to-get-wrong pile is not in here at all**:
+> prices, minimums, radius and payment terms are `agency_facts`, structured rows he confirmed,
+> read as data and never ranked. Retrieval only handles "how does he describe his food", where
+> a mediocre hit costs a generic question rather than a wrong promise.
+>
+> ### Adding dense later
+>
+> `alter table knowledge_chunks add column embedding vector(1024)`, add cosine distance as a
+> third ranker, switch `search_knowledge` to Reciprocal Rank Fusion. **Nothing above that
+> function changes** — which is why retrieval is a database function and not a query in
+> TypeScript. The column is deliberately absent rather than nullable-and-unused, so "is dense
+> on?" is answered by the schema instead of by a flag.
+>
+> **A rerank pass is also unblocked** and not yet built: top-20 sparse → one model call →
+> top-5. It needs the API key, not pgvector, and it recovers a good part of what dense would
+> have given. That is the highest-value next thing in this layer.
+
 > ## Phases B2, E, F and C-structured — 2026-08-09
 >
 > ### B2 — the same engine, rendered to the caterer
@@ -158,8 +226,8 @@
 >
 > | Not built | Blocked on |
 > |---|---|
-> | Contextual Retrieval over his documents | **pgvector is not available on this Postgres**, plus an embeddings call and a worker container to ingest 30 PDFs |
-> | Object storage (F0.5), uploads, crawl, BrandProfile | S3-compatible bucket, EU region (D29b) |
+> | ~~Contextual Retrieval~~ | **Built without pgvector — see below.** The dense half remains deferred |
+> | Object storage (F0.5) for **retaining original files**, crawl, BrandProfile | S3-compatible bucket, EU region (D29b). **No longer blocks the knowledge layer** |
 > | Voice notes | whisper.cpp cannot run in a serverless function — needs the same worker container |
 > | PDF of the request document | Headless Chrome; the web document is the source of truth and already prints |
 > | Onboarding rewrite | Waits on object storage — the first step is "upload 30 offers" |
@@ -247,8 +315,8 @@ short version: where the work stopped, and what to pick up.
 ## State of the tree
 
 ```
-npm run verify     typecheck + lint + 571 tests         green
-npm run test:db    14 migrations + 2 assertion suites   green   (needs local Postgres)
+npm run verify     typecheck + lint + 580 tests         green
+npm run test:db    15 migrations + 2 assertion suites   green   (needs local Postgres)
 npm run build      production build                     clean
 ```
 
