@@ -288,6 +288,30 @@ join, not new arithmetic — **do not write a second pricing path.**
   can be explained on request. That is I6, and it is also the single most convincing
   thing to show a judge who asks "how do you know this number is right?"
 
+**Two things this step needs that do not exist yet, found while building step 2 —
+do not rediscover them:**
+
+1. **A catalogue read with no identity.** `listCatalogueItems` in
+   `src/onboarding/repository.ts` is user-scoped, and correctly so: it is the owner's
+   editor. Pricing runs in the customer path, where there is no user, so this needs a
+   third definer function in the shape of 0007/0008/0009 — something like
+   `catalogue_for_pricing(agency_id)` returning items, price rules and modifiers.
+   Give it a fixed column list for the same reason `public_agency_profile` has one.
+2. **A quote writer with no identity**, wrapping `allocate_quote_number()` (0003) and
+   the `quotes` / `quote_versions` insert in one call, because a quote row with no
+   version is an empty link and a version with no number cannot be sent.
+
+`toPricingInput(brief, availability)` already exists in `src/domain/pricing-input.ts`
+and already drops everything personal. **Do not write a second one**, and do not add a
+parameter to it that takes a contact — that type not having one is Invariant 2.
+
+The chat route (`src/app/api/chat/[slug]/route.ts`) is where extraction gets called,
+behind the acknowledgement, never in front of it. Note the shape it has to fit:
+`recordChatTurn` returns the inquiry id, but `recordChatTurnDetached` — the version
+the route uses — throws it away to keep the write off the F1.9 path. Extraction needs
+that id, so the wiring has to chain off the same promise rather than start a second
+one, and it still must not move the first chunk.
+
 #### 4. F5.3 — a real tokenised quote link, sent into the chat
 
 Today `/q/{token}` renders one hardcoded demo quote and **404s for every real token**
