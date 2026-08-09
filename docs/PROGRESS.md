@@ -42,14 +42,15 @@
 > 2. ~~**Phase D (web only)** — `/r/{token}`.~~ **Done 2026-08-09.** Two documents from one
 >    route, the price-leak test written at both levels (rows and rendered HTML), and the
 >    send button in the chat.
-> 3. **Phase E (owner side)** — the Unipile adapter, emitting the existing `InboundEvent`
->    envelope. Two mitigations are mandatory, not optional hardening: threads are
->    inbound-initiated only via a `wa.me` deep link, and there is a per-account daily cap on
->    new threads with an email fallback.
-> 4. **Phase B2** — the owner-side price suggestion. Cheapest high-value phase in the plan:
->    the engine, `toPricingInput`, the trace renderer and the candidate-confirmation flow all
->    already exist. Needs one `cost_cents` column and `src/engine/margin.ts` **wrapping**
->    `PricedQuote` — do not edit the engine.
+> 3. ~~**Phase E (owner side)** — the Unipile adapter.~~ **Done 2026-08-09.** Both
+>    mitigations live in migration 0013 rather than in a runbook.
+> 4. ~~**Phase B2** — the owner-side price suggestion.~~ **Done 2026-08-09.** Wrapping, not
+>    editing: `ENGINE_VERSION` and the golden set are untouched.
+> 5. ~~**Phase F** — `/inbox` and the onboarding rewrite.~~ **Inbox done 2026-08-09**;
+>    the onboarding rewrite (upload → review facts → link WhatsApp) still waits on object
+>    storage.
+> 6. **Phase C, the retrieval half** — the only phase still substantially unbuilt, and it is
+>    blocked on infrastructure rather than on design. See below.
 >
 > Deferred but now unavoidable: object storage (30+ PDFs, uploads, voice notes), and a small
 > always-on worker container, because whisper.cpp and a model file cannot run in a serverless
@@ -90,6 +91,81 @@
 >   is the I5 half.
 > - Outbound turns are **still not stored.** The transcript sent to the model is the customer's
 >   half only, which is consistent — but the caterer will eventually read this thread.
+
+> ## ⚑ THE ONE THING BETWEEN THIS AND A DEMO — read before anything else
+>
+> **`ANTHROPIC_API_KEY` is set nowhere.** Every screen below works and was walked in a
+> browser against real rows, but two spots are model-gated and currently show their
+> designed fallbacks rather than their real output:
+>
+> 1. **The qualifying question.** `callModel` returns `not_configured`, so the turn
+>    escalates and the customer is told a person is taking over. Correct behaviour,
+>    verified end to end — and not a pitch.
+> 2. **The price suggestion** on the owner's `/r/{token}`. Service mapping is a model
+>    call, so the block renders *"Zu dieser Anfrage passt noch keine Ihrer Leistungen
+>    eindeutig"*. The engine, the margins and the rendering are all finished and tested;
+>    nothing chooses the line items.
+>
+> Set the key and both light up. Nothing else is required.
+>
+> **To walk the flows:** `psql -d angebot_dev -f scripts/seed-demo.sql`, then
+> `npm run dev`. Sign in as `johannes@krautundrueben.test` / `DemoPasswort2026!`,
+> customer chat at `/a/kraut-und-rueben`.
+
+> ## Phases B2, E, F and C-structured — 2026-08-09
+>
+> ### B2 — the same engine, rendered to the caterer
+>
+> `priceQuote` is called exactly as it always was; what changed is who reads the answer.
+> `src/engine/margin.ts` **wraps** `PricedQuote` and cannot produce a price, so a margin bug
+> can never become a pricing bug and the golden set is untouched.
+>
+> - **The test that matters is `revenue === quote.netTotal`.** The tempting
+>   `revenue − cost === margin` restates the implementation and passes even if the wrapper
+>   reads the wrong field off every line.
+> - **A missing cost is unknown, never zero.** Zeroing would report un-costed lines as pure
+>   profit — always wrong in the flattering direction, on the screen where he decides whether
+>   an event is worth doing. Excluded and named instead.
+> - `requestToPricingInput` is a **second door into `PricingInput`**, so the I2 test now
+>   inspects it too. A rule enforced on one of two entry points is not enforced.
+> - The suggestion is **recomputed per view**, never stored: his catalogue may have changed
+>   since she sent, and a cached figure shown as today's suggestion is the one way this
+>   misleads him.
+>
+> ### E — WhatsApp, and the two mitigations
+>
+> The provider is unofficial (N3). What that decision costs is paid in the schema:
+>
+> - `first_inbound_at` is written by the webhook and by nothing else. `may_send_to_thread`
+>   refuses a thread that has none. **No `force` parameter exists, and no internal variant
+>   skips the gate.**
+> - A per-account daily cap on *new threads* — not messages; a long conversation with one
+>   customer is not the pattern that gets a number banned — plus a kill switch. Both are
+>   columns, asserted by flipping the switch from a psql prompt.
+> - The owner's own thread is exempt from the cap. He linked the account.
+> - `rework.ts`: every figure in the draft must be one he wrote, checked **in code** over the
+>   rendered message. 78 × 80 = 6,240 is correct arithmetic and still a violation.
+>
+> ### C — the structured half only
+>
+> Confirmed facts are read as data and rendered verbatim; the retrieval half is not built.
+> **The most fragile point in the product is here:** "Mindestbestellung ab 20 Personen" plus
+> an enquiry for 12 is the most natural-sounding refusal software could produce, and a model
+> would produce it helpfully. The instruction forbids it in as many words and a test keeps
+> that sentence there.
+>
+> ### What is left, and why
+>
+> | Not built | Blocked on |
+> |---|---|
+> | Contextual Retrieval over his documents | **pgvector is not available on this Postgres**, plus an embeddings call and a worker container to ingest 30 PDFs |
+> | Object storage (F0.5), uploads, crawl, BrandProfile | S3-compatible bucket, EU region (D29b) |
+> | Voice notes | whisper.cpp cannot run in a serverless function — needs the same worker container |
+> | PDF of the request document | Headless Chrome; the web document is the source of truth and already prints |
+> | Onboarding rewrite | Waits on object storage — the first step is "upload 30 offers" |
+> | Outbound message persistence | Still only the customer's half of the transcript is stored |
+>
+> **Nothing above is stubbed or faked.** Each one renders its real empty state.
 
 > ## The loop closes — Phase D, 2026-08-09
 >
@@ -171,8 +247,8 @@ short version: where the work stopped, and what to pick up.
 ## State of the tree
 
 ```
-npm run verify     typecheck + lint + 498 tests         green
-npm run test:db    11 migrations + 2 assertion suites   green   (needs local Postgres)
+npm run verify     typecheck + lint + 571 tests         green
+npm run test:db    14 migrations + 2 assertion suites   green   (needs local Postgres)
 npm run build      production build                     clean
 ```
 
