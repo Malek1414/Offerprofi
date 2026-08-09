@@ -17,9 +17,11 @@ both were previously recorded here as "complete" and neither was; see
 generated view (`docs/progress.html`) — **30% of 154 features**, derived from the
 inventory rather than typed by hand, so it does not drift.
 
-**The one number that matters more than that one:** there is **no model call anywhere in
-the product**. F0.11 is not started, so the headline promise — chat to sent Angebot in
-under five minutes — cannot currently be demonstrated. Closing that is step 1.
+**The one number that matters more than that one:** ~~there is no model call anywhere in
+the product~~ — **step 1 is closed.** F0.11 shipped on 2026-08-09: `src/agent/client.ts`
+is the product's only door to a model, and nothing yet walks through it. The headline
+promise still is not demonstrable, because nothing extracts an event from a
+conversation. **Step 2 is next.**
 
 See [EVAL.md](EVAL.md) for how to tear this down and judge it on evidence. Its section
 0 is still the uncomfortable one: nothing here has met a real agency yet.
@@ -200,18 +202,44 @@ correctly priced Angebot in ninety seconds will.
 Do them in this order. Each one is visible on a screen, and each is the precondition
 for the next. **Step 5 is the pitch demo**; steps 1–4 exist to make step 5 real.
 
-#### 1. F0.11 — the Anthropic client wrapper
+#### 1. F0.11 — the Anthropic client wrapper ✅ **done 2026-08-09**
 
-The gate on everything below. `@anthropic-ai/sdk` is already a dependency and unused.
+The gate on everything below, and now open.
 
-Build the wrapper *before* the first feature that needs it, because the inventory
-requires that **no model call exists outside it** (enforced by lint rule), and
-retrofitting that boundary later is how it gets skipped. It logs to `agent_runs`
-(model, tokens in/out, latency, `cost_cents`) — which is also what finally answers
-open question #3, the real variable cost per inquiry.
+`src/agent/client.ts` is the only file in the product that may import the SDK. Two
+enforcements, because one is not enough: a `no-restricted-imports` rule in
+`eslint.config.mjs`, and `tests/agent/boundary.test.ts`, which walks `src/`, `tests/`
+and `scripts/` and fails if a second file mentions the package. The lint rule only
+sees import statements, and a boundary checked only by a linter is a boundary checked
+only when someone runs the linter.
 
-Keep it thin: one call site, typed request and response, an explicit timeout, and a
-failure path that escalates to the owner rather than throwing at the customer (I1).
+What hangs off that boundary, and would be skipped one call site later:
+
+- **`agent_runs` on every call, failed ones included** (`db/migrations/0008`,
+  SECURITY DEFINER — the caller is a customer and has no identity). A call that timed
+  out still burned input tokens, and a month of those is exactly what would otherwise
+  never appear in the unit economics. This is the row open question #3 gets answered
+  with. It stores content **hashes**, never prompt or completion text: the message is
+  already in `messages`, and a second copy with a different retention story buys
+  nothing.
+- **Cost in integer micro-cents** (`src/agent/cost.ts`). $5/M tokens is 0.0005 ¢ per
+  token — a figure that does not survive being summed ten thousand times as a float.
+  Rates are integers chosen so the cache multipliers (0.1×, 1.25×) stay integers too,
+  and the total is rendered to a decimal string exactly once, at the database
+  boundary. A model missing from the table costs `null`, never a guess.
+- **Customer content framed as data** (`src/agent/prompt.ts`, F3.11). Untrusted text
+  goes in labelled `<untrusted_input>` blocks with every `<` escaped, so no string a
+  customer can type closes the block early. `buildPrompt` takes the trusted role and
+  instruction as different parameters from the untrusted documents — concatenating one
+  into the other is not something a caller does by forgetting.
+- **Invariant 1 in the type system.** `callModel` does not throw. Every outcome is
+  `{ ok: true }` or a failure carrying `escalate: true`, and no failure kind means
+  "decline this customer". A throw would surface as a 500 on the chat surface, which
+  reads to a bride as *this agency's system rejected me*.
+
+Also here: D17's zero-retention requirement is an account setting, not a request
+parameter, so what the code can assert is that no model ineligible for it is
+reachable — `claude-fable-5` is refused by the registry with the reason named.
 
 #### 2. F3.3 / F3.5 — extraction: a chat turn becomes an `EventBrief`
 

@@ -25,4 +25,27 @@ export default [
       'no-undef': 'off', // TypeScript handles this, and it false-positives on types
     },
   },
+  {
+    // F0.11's acceptance criterion, as a rule rather than a convention: no model
+    // call exists outside src/agent/client.ts. Everything that makes a model call
+    // safe here — the agent_runs row, the untrusted-input framing, the guarantee
+    // that a failure escalates instead of refusing a customer — lives in the
+    // wrapper, and a second import of the SDK is how all three get skipped at once.
+    files: ['**/*.ts', '**/*.tsx'],
+    ignores: ['src/agent/client.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@anthropic-ai/sdk', '@anthropic-ai/sdk/**'],
+              message:
+                'Model calls go through src/agent/client.ts (F0.11). It logs to agent_runs, frames customer content as data, and returns a failure instead of throwing at a customer.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 ]

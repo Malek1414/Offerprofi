@@ -59,7 +59,7 @@ request path, not just in a test).
 | F0.8 tenancy tests | **Done** | `npm run test:db` — 8 assertions, executed against real Postgres. Isolation verified in both directions |
 | F0.9 `audit_log` helper | **Partial** | The database trigger writes on every inquiry transition and is asserted (X4). No application-side helper or actor resolution yet |
 | F0.10 Vercel + preview deploys | **Not started** | No `vercel.json`, no deploy configured |
-| F0.11 Anthropic client wrapper | **Not started** | **No model call exists anywhere in the product yet.** Everything shipped so far is deterministic |
+| F0.11 Anthropic client wrapper | **Done** | `src/agent/client.ts` is the only file that may import the SDK — enforced by a lint rule and by `tests/agent/boundary.test.ts`. Every call writes an `agent_runs` row through a SECURITY DEFINER function, failed calls included. Returns a failure that escalates; never throws at a customer |
 | F0.12 feature-flag table | **Not started** | Needed to ship Phases 10–12 dark |
 | F0.13 external verification track | **Not started** | Non-code, day-1 item (§5). DPA, Stripe, Cloudflare, Meta, Google, counsel |
 | F3.1/F3.2 EventBrief + `_contact` | **Done** | Types and confidence policy. Extraction worker not built |
@@ -93,8 +93,8 @@ request path, not just in a test).
 Everything else in the inventory. Named explicitly rather than left to inference:
 
 - **Phase 0, the rest** — F0.2 a provisioned EU Postgres, F0.5 object storage and its
-  bucket policies, F0.10 Vercel and preview deploys, F0.11 the Anthropic client wrapper,
-  F0.12 feature flags. Auth (F0.6) and tenant bootstrap (F0.7) are now closed; **email
+  bucket policies, F0.10 Vercel and preview deploys, F0.12 feature flags. F0.11, the
+  Anthropic client wrapper, is now **closed**. Auth (F0.6) and tenant bootstrap (F0.7) are now closed; **email
   verification and password reset are not** — both need outbound email, which is
   Phase 7. Signup therefore trusts the address until then, and says so.
 - **Phase 2, the rest** — F2.1 bulk upload, F2.2 per-format workers, F2.3 the

@@ -357,4 +357,53 @@ begin
   raise notice 'PASS I1 — a persisted chat turn can only land in state new';
 end $$;
 
+-- ─── F0.11 / X6: a model call is costed, and the cost is the owning tenant's ──
+
+set role app_login;
+
+do $$
+declare
+  run_id uuid;
+begin
+  perform set_config('app.current_user_id', '', false);
+
+  -- Written from the customer path, with no identity, like every model call this
+  -- product makes.
+  select public.record_agent_run(
+    'aaaaaaaa-0000-0000-0000-000000000001', 'extraction', 'claude-opus-5', null,
+    'sha256:0123456789abcdef0123456789abcdef', 'sha256:fedcba9876543210fedcba9876543210',
+    1843, 412, 2310, 1.951500) into run_id;
+
+  if run_id is null then
+    raise exception 'F0.11: record_agent_run returned no id';
+  end if;
+end $$;
+
+reset role;
+
+do $$
+declare
+  cost numeric;
+  visible int;
+begin
+  select ar.cost_cents into cost from agent_runs ar where ar.purpose = 'extraction';
+  -- The figure open question #3 is answered with. If micro-cents ever round on the
+  -- way in, this is where it shows up rather than in a pricing decision next year.
+  if cost <> 1.951500 then
+    raise exception 'X6: cost_cents round-tripped as % rather than 1.951500', cost;
+  end if;
+  raise notice 'PASS X6 — a model call is costed to the cent it actually cost';
+
+  -- The definer function inserts; it does not widen who may read. Tenant B's rows
+  -- are counted from tenant A's identity and must be zero.
+  perform set_config('app.current_user_id', '11111111-0000-0000-0000-000000000002', false);
+  set local role app_user;
+  select count(*) into visible from agent_runs
+   where agency_id = 'aaaaaaaa-0000-0000-0000-000000000001';
+  if visible <> 0 then
+    raise exception 'F0.4: another tenant read % agent_runs rows', visible;
+  end if;
+  raise notice 'PASS F0.4 — agent_runs is not readable across tenants';
+end $$;
+
 select 'ALL DATABASE ASSERTIONS PASSED' as result;
