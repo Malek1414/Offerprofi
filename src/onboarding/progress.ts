@@ -39,6 +39,25 @@ export type RequirementId =
 export interface Requirement {
   id: RequirementId
   met: boolean
+  /**
+   * True when this requirement cannot be acted on yet because another one is
+   * outstanding — today only "a price for every service" before any service exists.
+   *
+   * ─────────────────────────────────────────────────────────────────────────
+   * This exists because of a bug that only showed up on screen. The rule used to be
+   * that a target of zero is met, on the reasoning that an owner with no services has
+   * no services missing a price. Arithmetically true, and badly wrong in front of a
+   * person: a brand-new owner opened onboarding and was told she had already
+   * completed a step she had not started, with the counter claiming "1 von 5" of
+   * progress she had not made. On the first screen of a flow measured by unaided
+   * completion, that is worse than showing nothing.
+   *
+   * So a blocked requirement is neither met nor outstanding. It counts toward
+   * neither, and the UI shows it without an action, because there is nothing yet to
+   * click.
+   * ─────────────────────────────────────────────────────────────────────────
+   */
+  blocked: boolean
   /** Where the owner is now, against what is needed. Drives "3 of 5", not a %. */
   current: number
   target: number
@@ -64,7 +83,10 @@ export function onboardingProgress(state: OnboardingState): OnboardingProgress {
     requirement('confirmed_items', state.confirmedItemCount, REQUIRED_CONFIRMED_ITEMS),
     // Every confirmed item needs a price rule, so the target moves with the
     // catalogue rather than being a fixed number she can satisfy and then break.
-    requirement('price_rules', state.itemsWithPriceRule, state.confirmedItemCount),
+    // Blocked until there is at least one service to price — see `blocked` above.
+    requirement('price_rules', state.itemsWithPriceRule, state.confirmedItemCount, {
+      blocked: state.confirmedItemCount === 0,
+    }),
     requirement('brand', state.brandConfirmed ? 1 : 0, 1),
     requirement('guardrails', state.guardrailsSet ? 1 : 0, 1),
   ]
@@ -73,18 +95,27 @@ export function onboardingProgress(state: OnboardingState): OnboardingProgress {
   return {
     complete: met === requirements.length,
     requirements,
+    // Blocked requirements are outstanding — they are not done — so they belong here.
+    // They simply cannot be acted on yet, which is the caller's cue to omit the
+    // action rather than to hide the step.
     remaining: requirements.filter((r) => !r.met),
     ratio: Number((met / requirements.length).toFixed(2)),
   }
 }
 
-function requirement(id: RequirementId, current: number, target: number): Requirement {
+function requirement(
+  id: RequirementId,
+  current: number,
+  target: number,
+  options: { blocked?: boolean } = {},
+): Requirement {
+  const blocked = options.blocked ?? false
   return {
     id,
-    // A target of zero is met: an owner with no confirmed items has no items
-    // missing price rules. Treating 0/0 as unmet would block onboarding on a
-    // requirement that cannot be acted on.
-    met: current >= target,
+    // A blocked requirement is never met, however the arithmetic comes out. Zero of
+    // zero is not an achievement.
+    met: !blocked && current >= target,
+    blocked,
     current,
     target,
     reasonCode: id,

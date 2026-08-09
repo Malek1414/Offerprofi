@@ -74,13 +74,32 @@ describe('F2.12 — progress against the real exit criterion', () => {
     expect(progress.remaining.map((r) => r.id)).toEqual(['price_rules'])
   })
 
-  it('does not block on a requirement that cannot be acted on', () => {
-    // Zero confirmed items means zero items missing a price rule. Treating 0/0 as
-    // unmet would show her an item she has no way to satisfy.
+  it('never claims a step is done before it can be started', () => {
+    // Found on screen, not in a test. Zero confirmed items means zero items missing a
+    // price rule, so the arithmetic said "met" and a brand-new owner was told she had
+    // completed a step she had not begun — with the counter claiming progress she had
+    // not made, on the first screen of a flow measured by unaided completion.
     const priceRules = onboardingProgress(state()).requirements.find(
       (r) => r.id === 'price_rules',
     )
-    expect(priceRules?.met).toBe(true)
+    expect(priceRules?.met).toBe(false)
+    expect(priceRules?.blocked).toBe(true)
+  })
+
+  it('counts nothing as done for an owner who has just signed up', () => {
+    const progress = onboardingProgress(state())
+    expect(progress.requirements.filter((r) => r.met)).toEqual([])
+    expect(progress.ratio).toBe(0)
+    expect(progress.remaining).toHaveLength(progress.requirements.length)
+  })
+
+  it('unblocks pricing as soon as there is something to price', () => {
+    const progress = onboardingProgress({ ...state(), confirmedItemCount: 2 })
+    const priceRules = progress.requirements.find((r) => r.id === 'price_rules')
+    expect(priceRules?.blocked).toBe(false)
+    // Two services, neither priced — outstanding and actionable, not done.
+    expect(priceRules?.met).toBe(false)
+    expect(priceRules?.target).toBe(2)
   })
 
   it('orders the remaining work the way it should be tackled', () => {

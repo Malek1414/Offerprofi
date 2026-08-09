@@ -1,0 +1,287 @@
+/*
+ * S9 — onboarding shell (F2.12).
+ *
+ * Owner-facing, so this is our chassis rather than the agency's brand — Lisa has not
+ * confirmed a BrandProfile yet, which is one of the things this screen is asking her
+ * to do.
+ *
+ * The layout is a checklist, not a wizard with a forced order. A wizard is the
+ * obvious choice and it is wrong here: the steps have genuinely different costs
+ * (guardrails take three minutes, uploading three past quotes might mean finding
+ * them), and an owner blocked behind a step she cannot do right now abandons rather
+ * than skipping ahead. Everything stays reachable; only the *reason* each step exists
+ * is enforced.
+ */
+
+.page {
+  min-height: 100dvh;
+  background: var(--paper-sunk);
+  padding: clamp(1.25rem, 5vw, 3rem) 1.25rem 5rem;
+}
+
+.shell {
+  max-width: 44rem;
+  margin: 0 auto;
+}
+
+.header {
+  margin-bottom: 2rem;
+}
+
+.eyebrow {
+  font-size: var(--step--1);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+
+.title {
+  font-family: var(--display);
+  font-size: var(--step-3);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 0.35rem 0 0.5rem;
+}
+
+.lede {
+  color: var(--ink-soft);
+  line-height: 1.55;
+  max-width: var(--measure);
+  margin: 0;
+}
+
+/* ─── Progress ─────────────────────────────────────────────────────────────
+ * A count, not a percentage. "2 von 5" is a number the owner can act on;
+ * "40 %" is one she can only feel. The bar underneath is the coarse indicator.
+ */
+.progress {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 2rem 0 0.5rem;
+}
+
+.progressCount {
+  font-family: var(--display);
+  font-size: var(--step-1);
+}
+
+.progressLabel {
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+}
+
+.bar {
+  height: 4px;
+  background: var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 2.25rem;
+}
+
+.barFill {
+  height: 100%;
+  background: var(--ink);
+  border-radius: 999px;
+}
+
+/* ─── Steps ────────────────────────────────────────────────────────────── */
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.step {
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.25rem;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0 1rem;
+  align-items: start;
+}
+
+.stepDone {
+  /* Completed steps recede rather than celebrate. The owner is looking for what is
+   * left, and a row of green ticks competing for attention makes that harder. */
+  background: transparent;
+  border-color: transparent;
+}
+
+.marker {
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  border: 1.5px solid var(--line-strong);
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+  color: var(--ink-mute);
+  margin-top: 0.1rem;
+}
+
+.markerDone {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper-raised);
+}
+
+.stepTitle {
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.stepDone .stepTitle {
+  color: var(--ink-mute);
+  font-weight: 500;
+}
+
+/*
+ * The reason each step exists (F2.3: "explained, not just enforced").
+ *
+ * Shown on the outstanding steps only. An owner who understands why she is blocked
+ * acts on it; one who does not assumes the product is broken and leaves — which is
+ * the ≥70% unaided-completion target, lost one owner at a time.
+ */
+.stepWhy {
+  grid-column: 2;
+  font-size: var(--step--1);
+  line-height: 1.5;
+  color: var(--ink-mute);
+  margin: 0.3rem 0 0;
+  max-width: var(--measure);
+}
+
+.stepCount {
+  grid-column: 3;
+  grid-row: 1;
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+  white-space: nowrap;
+  padding-top: 0.15rem;
+}
+
+/*
+ * A step that cannot be started yet. Present, so the owner can see the whole shape of
+ * the setup from the first screen, but visibly waiting rather than either done or
+ * demanding attention — the three states have to be told apart at a glance.
+ */
+.stepBlockedRow {
+  background: transparent;
+  border-style: dashed;
+}
+
+.stepBlockedRow .stepTitle {
+  color: var(--ink-mute);
+}
+
+.stepBlocked {
+  grid-column: 2;
+  margin: 0.6rem 0 0;
+  font-size: var(--step--1);
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+.stepAction {
+  grid-column: 2;
+  justify-self: start;
+  margin-top: 0.85rem;
+  font-size: var(--step--1);
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.85rem;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.stepAction:hover {
+  border-color: var(--ink);
+}
+
+/* ─── The link the whole product hangs off ─────────────────────────────── */
+
+.linkCard {
+  margin-top: 2.5rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+}
+
+.linkCardTitle {
+  font-weight: 600;
+  margin: 0 0 0.3rem;
+}
+
+.linkCardWhy {
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+  line-height: 1.5;
+  margin: 0 0 0.75rem;
+  max-width: var(--measure);
+}
+
+.link {
+  display: block;
+  font-family: var(--mono);
+  font-size: var(--step--1);
+  color: var(--ink);
+  background: var(--paper-sunk);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.7rem;
+  overflow-wrap: anywhere;
+}
+
+.linkPlaceholder {
+  color: var(--ink-faint);
+}
+
+.placeholderNote {
+  font-size: var(--step--1);
+  color: var(--warn-ink);
+  background: var(--warn-wash);
+  border: 1px solid var(--warn-ink);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.6rem;
+  margin-top: 0.6rem;
+  line-height: 1.45;
+}
+
+.footer {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+  flex-wrap: wrap;
+}
+
+.signOut {
+  font: inherit;
+  color: var(--ink-mute);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.signOut:hover {
+  color: var(--ink);
+}

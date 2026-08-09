@@ -14,7 +14,16 @@
  * needs no host comparison.
  */
 
-export const DEFAULT_DESTINATION = '/inbox'
+/**
+ * The root, not a named screen.
+ *
+ * Where an owner belongs after signing in depends on her state: an incomplete
+ * catalogue means onboarding, a live one means the inbox. Hardcoding either here
+ * would send half of them to the wrong place — and pointing at `/inbox` before
+ * Phase 6 exists sent all of them to a 404. `/` resolves it against the database
+ * (src/app/page.tsx) and forwards.
+ */
+export const DEFAULT_DESTINATION = '/'
 
 /**
  * The four shapes that must be refused, each of which defeats a naive

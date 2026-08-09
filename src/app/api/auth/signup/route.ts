@@ -18,7 +18,7 @@
  *   - What leaks is whether a *business email address* has an account with a quoting
  *     tool. These addresses are on the agency's own website and Impressum; the
  *     sensitivity is very different from a consumer service.
- *   - The signup form is rate-limited per IP, so the leak is not enumerable at scale.
+ *   - The signup form is throttled, so the leak is not enumerable at scale.
  *
  * Login does not make the same trade — see src/auth/login.ts, where the two failure
  * modes are genuinely indistinguishable.
@@ -32,6 +32,7 @@ import { login } from '../../../../auth/login'
 import { branding } from '../../../../lib/branding'
 import { serializeStaffCookie, staffCookieOptions } from '../../../../auth/session'
 import { AuthThrottle } from '../../../../auth/throttle'
+import { clientIp } from '../../../../auth/client-ip'
 
 export const runtime = 'nodejs'
 
@@ -114,15 +115,3 @@ function json(payload: unknown, status: number, headers: Record<string, string> 
   })
 }
 
-/**
- * The client address, as far as it can be trusted.
- *
- * `x-forwarded-for` is client-controlled unless a proxy overwrites it, so this is
- * only ever used for rate-limit bucketing and session provenance — never for
- * authorisation. Taking the first entry is correct behind a single trusted proxy and
- * wrong behind none; it is the shape our deployment has.
- */
-function clientIp(request: NextRequest): string {
-  const forwarded = request.headers.get('x-forwarded-for')
-  return forwarded?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown'
-}
