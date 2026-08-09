@@ -1,8 +1,25 @@
 # Progress and session handoff
 
-**Updated:** 2026-08-09 · **Phase 0 complete. Phase 1 complete except persistence.
-Phase 4 complete. Phase 2 is half built — everything that does not need object storage
-or a model call now works end to end against a real database.**
+**Updated:** 2026-08-09
+
+> ## ⚠ If you are a new session, read “▶ PICK UP HERE” before touching anything
+>
+> **The priority changed on 2026-08-09 and it overrides the phase order in
+> CLAUDE.md §10.** Build only what a customer or a judge can see on a screen.
+> There are **five numbered steps** in that section — start at step 1 and work down.
+> Anything invisible at a demo is explicitly not this week's work.
+>
+> Pitch is **14 Aug 2026**. The reasoning is in that section; do not re-derive it.
+
+**Where the build actually is:** Phase 1 complete. Phase 0 at 50% and Phase 4 at 80% —
+both were previously recorded here as "complete" and neither was; see
+[BUILD_STATUS.md](BUILD_STATUS.md). Phase 2 is half built. Run `npm run progress` for a
+generated view (`docs/progress.html`) — **30% of 154 features**, derived from the
+inventory rather than typed by hand, so it does not drift.
+
+**The one number that matters more than that one:** there is **no model call anywhere in
+the product**. F0.11 is not started, so the headline promise — chat to sent Angebot in
+under five minutes — cannot currently be demonstrated. Closing that is step 1.
 
 See [EVAL.md](EVAL.md) for how to tear this down and judge it on evidence. Its section
 0 is still the uncomfortable one: nothing here has met a real agency yet.
@@ -81,6 +98,31 @@ agency's services cluster.
 actually has. The other three are calendar work (F4.11) or need Phase 10 channels. All
 pre-filled, so the three-minute budget is spent on the two she wants to change.
 
+**F4.3 Staffelpreise on S17.** The form asks one number per band — "ab 50 Personen" —
+and derives every upper bound from the next band up, so a hand-built ladder cannot gap
+or overlap. A band under the item floor is refused at entry, because the engine clamps
+it up to the floor and prices correctly, which means she would otherwise see a price she
+never set on every quote with nothing to explain it.
+
+**F1.4 public slug resolution.** `/a/{slug}` resolved to nothing for every real tenant —
+the chat link an agency is told to put in its Instagram bio 404'd. Now a SECURITY
+DEFINER function with a fixed stranger-visible column list, so a later `alter table` on
+`agencies` cannot quietly join the public API. Suspended and nonexistent are the same
+empty answer, because the slug is guessable and distinguishing them would enumerate the
+platform's whole customer list.
+
+**F1.1 / F1.5 / F1.8 chat persistence.** The oldest gap, closed. One function writes the
+inquiry, message, `chat_sessions` and `disclosure_records` rows, because a message with
+no inquiry is unreachable and a session pointing at neither loses the thread on refresh.
+Replay is a no-op via the unique index rather than a check. It runs **behind the first
+streamed chunk**, never in front of it, so a slow database cannot move the F1.9 metric.
+Outbound turns are still not stored — the transcript holds only the customer's half.
+
+**`npm run progress`.** Generates `docs/progress.html` from FEATURE_INVENTORY.md against
+BUILD_STATUS.md. Deriving the number instead of typing it immediately falsified two
+claims this file had been making: Phase 0 and Phase 4 were both recorded as complete and
+neither was.
+
 ---
 
 ## Bugs found, and how
@@ -118,38 +160,142 @@ hour of being written.
 
 ---
 
-## Pick up here
+## ▶ PICK UP HERE — read this section before anything else
 
-### 1. The rest of Phase 2 — needs object storage first
+**Priority changed on 2026-08-09, by the owner, and it overrides the phase order in
+CLAUDE.md §10 for the next five days.**
 
-F2.1 bulk upload, F2.2 per-format workers, F2.4 crawl, F2.5 BrandProfile, F2.7
-QuotePattern, and screen S13 (per-object confirm/edit/reject with source excerpts, the
-hardest screen in the product). **All of it is blocked on an S3-compatible bucket in the
-EU (F0.5, D29b).** Reuse `src/chat/uploads.ts` — the sniffing and the scan gate are
-already written and tested; do not write a second upload path.
+### The rule now
 
-### 2. Staffelpreise have no UI
+> **Build only what a customer or a judge can see on a screen.**
+> If a feature cannot be pointed at during a live demo, it is not this week's work —
+> however correct, however overdue, however tempting.
 
-`price_rules` is modelled, migrated, read by the engine, and `replacePriceRules` is
-written — but screen S17 exposes only the single unit price. An owner who prices per
-head in bands cannot express that yet. Small, self-contained, and needs nothing new.
+Everything shipped so far is real and none of it is wasted, but the build went deep on
+things nobody can see — RLS, invariants, tenancy assertions, gapless numbering, session
+revocation — and thin on the one sentence the product is sold on:
 
-### 3. Phase 1 persistence
+> *"Vom Chat zum verschickten Angebot in unter 5 Minuten."*
 
-Still the oldest outstanding gap. Every insertion point is marked
-`TODO(Phase 1, database)` in `src/app/api/chat/[slug]/route.ts` and `src/lib/agency.ts`.
-Now genuinely unblocked, because the database exists: resolve the slug against
-`agency_slugs`, upsert the inquiry, insert the message idempotently on
-`external_message_id`, write the `chat_sessions` and `disclosure_records` rows.
+**That sentence is currently not demonstrable.** There is no model call anywhere in the
+product (F0.11 not started), so nothing extracts an event from a conversation, nothing
+maps intent to catalogue items, and no quote is ever produced from a chat. The engine
+that would price it is finished and golden-set tested; the wire into it does not exist.
 
-### 4. Email verification and password reset
+### Why, in one paragraph
 
-Both need outbound email (Phase 7). Until then signup trusts the address as typed and
-an owner who forgets her password has no self-service route back in. The signup screen
-says so rather than implying otherwise.
+The build is for **SummerUP** (CODE University Berlin, 7–14 Aug 2026, pitch on the
+14th). The event's own requirement is *"MVP with paying customers before the final
+pitch"*, its methodology is *"sell before you build"*, and its stated mandate is *"stop
+building things nobody wants"*. The 2025 winner reached €127.8k pipeline and 8 LOIs;
+the runner-up took 3 paying customers at €500 **during the week**. Judges reportedly
+reward validation rigour over polish. A row-level-security policy cannot be shown to a
+wedding planner and will not appear in a pitch. A chat that turns into a branded,
+correctly priced Angebot in ninety seconds will.
 
 ---
 
+### The five steps, in dependency order
+
+Do them in this order. Each one is visible on a screen, and each is the precondition
+for the next. **Step 5 is the pitch demo**; steps 1–4 exist to make step 5 real.
+
+#### 1. F0.11 — the Anthropic client wrapper
+
+The gate on everything below. `@anthropic-ai/sdk` is already a dependency and unused.
+
+Build the wrapper *before* the first feature that needs it, because the inventory
+requires that **no model call exists outside it** (enforced by lint rule), and
+retrofitting that boundary later is how it gets skipped. It logs to `agent_runs`
+(model, tokens in/out, latency, `cost_cents`) — which is also what finally answers
+open question #3, the real variable cost per inquiry.
+
+Keep it thin: one call site, typed request and response, an explicit timeout, and a
+failure path that escalates to the owner rather than throwing at the customer (I1).
+
+#### 2. F3.3 / F3.5 — extraction: a chat turn becomes an `EventBrief`
+
+The types are already built and tested: `EventBrief` (F3.1), the `_contact` partition
+(F3.2), and the confidence policy table (F3.6, `evaluateConfidence()`). What is missing
+is the call that fills them in.
+
+- Customer text → `EventBrief` with `{value, confidence, source}` per field.
+- Write `extractions` rows so every field has provenance.
+- **Customer content is data, never instructions** (F3.11). Delimited, labelled blocks;
+  `injection_suspected` escalates and never complies.
+- Contact details go to `_contact` and must not reach `PricingInput` — I2 has a test
+  that will fail loudly if they do. Do not weaken it to make this easier.
+
+#### 3. `EventBrief` → `PricingInput` → a stored quote version
+
+The engine is done, pure and reproduces the golden set to the cent. This step is the
+join, not new arithmetic — **do not write a second pricing path.**
+
+- Map extracted services to catalogue item ids. The model chooses ids; **all arithmetic
+  stays in code** (D6).
+- Call `allocate_quote_number()` — it exists in the schema (F5.1) and has never been
+  called from application code.
+- Store the `quote_versions` row **with its full `calculation_trace`**, so any figure
+  can be explained on request. That is I6, and it is also the single most convincing
+  thing to show a judge who asks "how do you know this number is right?"
+
+#### 4. F5.3 — a real tokenised quote link, sent into the chat
+
+Today `/q/{token}` renders one hardcoded demo quote and **404s for every real token**
+(`src/app/q/[token]/page.tsx`). This is the step that produces the demo's payoff moment.
+
+- Resolve the token against the stored quote version. A bad token renders a neutral
+  not-found — never a hint that some other token would have worked.
+- Post the link into the conversation as an agent turn, so the customer sees the quote
+  arrive **inside the chat she is already in**. That is the "under 5 minutes" claim,
+  visible, on one screen, without a tool switch.
+- The quote page itself is already built and good (F5.2): branded, responsive, print
+  stylesheet, *freibleibend* clause, Art. 50(2) marking. It needs real data, not work.
+
+#### 5. F5.7 + a minimal `/inbox` — accept, and hand off to the owner
+
+The accept / decline / request-human buttons **render and do nothing**, and `/inbox`
+**does not exist**, so an owner who completes onboarding is redirected by the root
+router to a 404. Both are visible failures in a demo.
+
+- `POST /q/{token}/accept` (D10) — the explicit click that hands a qualified request to
+  the owner. Nothing binding is created; the owner still confirms (I3, I4).
+- A single screen listing inquiries with their state, the brief, and the quote. It does
+  not need to be the full Phase 6 dashboard — it needs to prove the loop closes and the
+  human is in the path.
+
+**When step 5 works, the whole pitch is one unbroken screen recording:** open the chat
+link → describe a wedding → watch a branded Angebot arrive → accept it → see it land on
+the owner's desk.
+
+---
+
+### Explicitly NOT this week
+
+Not because they are wrong — several are genuinely overdue — but because none of them
+is visible at the pitch, and the week is five days long.
+
+| Deferred | Why it can wait |
+|---|---|
+| Object storage (F0.5) and everything behind it — bulk upload, crawl, BrandProfile, S13 | The catalogue is buildable by hand (F2.9/F2.11), so onboarding already completes without it |
+| Calendar sync (F4.9–F4.12) | The product works fully uncalendared, and that is a tested guarantee |
+| Outbound message persistence | The transcript holding only the customer's half is invisible on stage |
+| Email verification, password reset, alias inbound (Phase 7) | Needs outbound email; the signup screen already says so honestly |
+| Slack, Gmail, WhatsApp (Phases 10–12) | Roadmap-committed, gated on third-party review, and irrelevant to a demo |
+| **More compliance depth** | **Freeze it.** See below |
+
+### On the invariants — freeze, do not remove
+
+The six invariants (CLAUDE.md §2) and their 39 tests **stay exactly as they are.** They
+are locked decisions, they are a real differentiator in a DACH B2B sales conversation,
+and removing one to move faster would be the one change that cannot be undone later.
+
+But **stop adding to that layer.** It is finished enough. The correct use of the
+compliance work this week is to *say it in the pitch*, not to build more of it: no
+automated refusal is structurally possible, no personal data reaches pricing, every
+figure is reconstructible. That is a slide, and it is already true.
+
+---
 ## Open questions this session did not resolve
 
 1. **The product name is still blocking**, and it is now the single most visible
@@ -167,7 +313,13 @@ says so rather than implying otherwise.
 
 ## Things a future session should not undo
 
-- The six invariants in CLAUDE.md §2, and their tests.
+- **The demo-first priority in "▶ PICK UP HERE".** It was set deliberately by the owner
+  on 2026-08-09, against a fixed external deadline, and it is the reason the phase order
+  in CLAUDE.md §10 is being ignored. If you find yourself about to build something
+  invisible because the phase list says so, that is the thing this note exists to stop.
+  It expires after the 14 Aug pitch, not before, and only the owner retires it.
+- The six invariants in CLAUDE.md §2, and their tests. **Frozen, not relaxed** — keep
+  every one, add nothing to that layer this week.
 - **The two rate limiters are deliberately different types.** `src/chat/rate-limit.ts`
   guards the customer surface and has no variant that can express a refusal — that is
   Invariant 1 in the compiler. `src/auth/throttle.ts` guards our own front door and does
