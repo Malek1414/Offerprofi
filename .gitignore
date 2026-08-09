@@ -4,4 +4,5 @@ node_modules/
 .env.local
 .next/
 .playwright-cli/
+summerup.berlin_internal_perks*.png
 *.tsbuildinfo
