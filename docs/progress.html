@@ -57,18 +57,18 @@
 <body>
 <div class="wrap">
   <h1>Build progress</h1>
-  <p class="sub">Quote automation for small event agencies · generated 2026-08-09 10:07</p>
+  <p class="sub">Quote automation for small event agencies · generated 2026-08-09 10:15</p>
 
   <div class="total">
-    <div class="big">31<span>%</span></div>
-    <p class="of">47.5 of 154 features</p>
-    <div class="bar" role="img" aria-label="31 percent of the build complete">
-      <div class="fill" style="width:31%"></div>
+    <div class="big">32<span>%</span></div>
+    <p class="of">49.5 of 154 features</p>
+    <div class="bar" role="img" aria-label="32 percent of the build complete">
+      <div class="fill" style="width:32%"></div>
     </div>
     <div class="legend">
-      <span><b>42</b> done</span>
+      <span><b>44</b> done</span>
       <span><b>11</b> partial</span>
-      <span><b>101</b> to go</span>
+      <span><b>99</b> to go</span>
     </div>
   </div>
 
@@ -188,18 +188,18 @@
     <section class="phase">
       <div class="phase-head">
         <h2>Phase 3 <span class="phase-label">Extraction → EventBrief</span></h2>
-        <span class="phase-pct">17%</span>
+        <span class="phase-pct">33%</span>
       </div>
-      <div class="bar" role="img" aria-label="17 percent">
-        <div class="fill" style="width:17%"></div>
+      <div class="bar" role="img" aria-label="33 percent">
+        <div class="fill" style="width:33%"></div>
       </div>
-      <p class="tally">2 done · 12 total</p>
+      <p class="tally">4 done · 12 total</p>
       <details>
         <summary>features</summary>
         <ul class="features">
-          <li class="f done"><span class="dot"></span><b>F3.1</b> EventBrief schema — per-field {value, confidence, source} per spec §4.10<em>Types and confidence policy. Extraction worker not built</em></li>
+          <li class="f done"><span class="dot"></span><b>F3.1</b> EventBrief schema — per-field {value, confidence, source} per spec §4.10<em>Types and confidence policy</em></li>
           <li class="f todo"><span class="dot"></span><b>F3.2</b> _contact partition (I2, D24) — a structurally separate type, not a convention</li>
-          <li class="f todo"><span class="dot"></span><b>F3.3</b> Extraction worker — text, vision (images/screenshots/mood boards/competitor quotes/handwritten), documents</li>
+          <li class="f done"><span class="dot"></span><b>F3.3</b> Extraction worker — text, vision (images/screenshots/mood boards/competitor quotes/handwritten), documents<em>src/agent/extraction.ts — transcript → EventBrief + ContactPartition, one extractions row per field. Invented service ids are discarded (D8); language and formality stay deterministic; completeness and overall confidence are computed here, not asked for</em></li>
           <li class="f todo"><span class="dot"></span><b>F3.4</b> Chat transcript parser → speaker turns (WhatsApp exports)</li>
           <li class="f todo"><span class="dot"></span><b>F3.5</b> extractions rows — field_path, value, confidence, source(ai\</li>
           <li class="f done"><span class="dot"></span><b>F3.6</b> Confidence policy engine — the spec §4.10 decision table<em>evaluateConfidence() implements the §4.10 table</em></li>
@@ -207,7 +207,7 @@
           <li class="f todo"><span class="dot"></span><b>F3.8</b> In-chat qualifying questions with quick-reply chips</li>
           <li class="f todo"><span class="dot"></span><b>F3.9</b> Detail form /f/{token} — fields generated from gaps, autosave per field, partial submissions ingested, source='form', confidence 1.0</li>
           <li class="f todo"><span class="dot"></span><b>F3.10</b> Conflict handling — latest customer statement wins; the conflict is shown in the timeline, not silently resolved</li>
-          <li class="f todo"><span class="dot"></span><b>F3.11</b> Prompt-injection boundary (spec §12.4) — customer content in delimited labelled blocks; injection_suspected → escalate, never comply</li>
+          <li class="f done"><span class="dot"></span><b>F3.11</b> Prompt-injection boundary (spec §12.4) — customer content in delimited labelled blocks; injection_suspected → escalate, never comply<em>Untrusted blocks with the delimiter escaped (src/agent/prompt.ts). injection_suspected is reported and escalates; it changes no other field and refuses nobody</em></li>
           <li class="f todo"><span class="dot"></span><b>F3.12</b> Voice notes — stored, flagged, not transcribed; inquiry routes to owner</li>
         </ul>
       </details>

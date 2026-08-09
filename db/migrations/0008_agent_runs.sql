@@ -46,12 +46,24 @@ set search_path = public
 as $$
 declare
   v_id uuid;
+  v_agency uuid;
 begin
   if p_agency_id is null then
     raise exception 'record_agent_run requires an agency id';
   end if;
   if p_purpose is null or p_model is null then
     raise exception 'record_agent_run requires a purpose and a model';
+  end if;
+
+  -- A definer function runs as its owner, so RLS is not standing behind this pair.
+  -- An inquiry attributed to the wrong agency would put one tenant's cost on
+  -- another's bill, which is the one thing this table exists not to get wrong.
+  if p_inquiry_id is not null then
+    select i.agency_id into v_agency from public.inquiries i where i.id = p_inquiry_id;
+    if v_agency is distinct from p_agency_id then
+      raise exception 'record_agent_run: inquiry % does not belong to agency %',
+        p_inquiry_id, p_agency_id;
+    end if;
   end if;
 
   insert into public.agent_runs

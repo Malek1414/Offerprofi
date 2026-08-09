@@ -406,4 +406,106 @@ begin
   raise notice 'PASS F0.4 — agent_runs is not readable across tenants';
 end $$;
 
+-- ─── F3.3 / F3.5: an extraction is stored, and I2 survives the round trip ────
+
+-- Looked up here, before dropping to app_login: RLS correctly hides chat_sessions
+-- from a caller with no identity, so reading it inside the block below would bind
+-- null and the whole section would test nothing.
+do $$
+begin
+  perform set_config(
+    'test.inquiry_id',
+    (select cs.inquiry_id::text from public.chat_sessions cs
+      where cs.session_token_hash = 'hash-session-1'),
+    false);
+end $$;
+
+set role app_login;
+
+do $$
+declare
+  target uuid := current_setting('test.inquiry_id')::uuid;
+  other_agency uuid := 'aaaaaaaa-0000-0000-0000-000000000002';
+begin
+  perform set_config('app.current_user_id', '', false);
+
+  perform public.record_event_brief(
+    'aaaaaaaa-0000-0000-0000-000000000001', target,
+    '{"guestCount": {"value": 80, "confidence": 0.85}, "language": "de"}'::jsonb,
+    '{"name": "Sarah Brandt", "email": "sarah@example.de"}'::jsonb,
+    0.75, 0.68,
+    '[{"field_path": "guestCount", "value": 80, "confidence": 1.4, "source_ref": "msg_1"}]'::jsonb);
+
+  -- A later turn corrects the count. Extractions append; the brief is replaced.
+  perform public.record_event_brief(
+    'aaaaaaaa-0000-0000-0000-000000000001', target,
+    '{"guestCount": {"value": 95, "confidence": 0.9}, "language": "de"}'::jsonb,
+    '{"name": "Sarah Brandt", "email": "sarah@example.de"}'::jsonb,
+    1.0, 0.88,
+    '[{"field_path": "guestCount", "value": 95, "confidence": 0.9, "source_ref": "msg_4"}]'::jsonb);
+
+  -- A definer function runs as its owner, so nothing but this check stands between
+  -- a mismatched pair and one tenant's extraction landing on another's inquiry.
+  begin
+    perform public.record_event_brief(
+      other_agency, target, '{}'::jsonb, '{}'::jsonb, 0, 0);
+    raise exception 'I2/F0.4: an inquiry accepted a brief from another agency';
+  exception when others then
+    if sqlerrm like '%does not belong to agency%' then
+      raise notice 'PASS F0.4 — a brief cannot be written onto another tenant''s inquiry';
+    else
+      raise;
+    end if;
+  end;
+end $$;
+
+reset role;
+
+do $$
+declare
+  target uuid;
+  brief jsonb;
+  contact jsonb;
+  history int;
+  stored_confidence numeric;
+begin
+  select cs.inquiry_id into target
+    from chat_sessions cs where cs.session_token_hash = 'hash-session-1';
+
+  select eb.brief_json, eb.contact_json into brief, contact
+    from event_briefs eb where eb.inquiry_id = target;
+
+  if brief -> 'guestCount' ->> 'value' <> '95' then
+    raise exception 'F3.5: the brief was not replaced by the later turn';
+  end if;
+  raise notice 'PASS F3.5 — a later extraction replaces the brief';
+
+  -- I2 through the database: the two halves came in as two parameters and are
+  -- still two columns. A name in brief_json is the failure this checks for.
+  if brief::text like '%Sarah%' then
+    raise exception 'I2: contact data reached brief_json';
+  end if;
+  if contact ->> 'name' is null then
+    raise exception 'I2: contact_json lost the name it was given';
+  end if;
+  raise notice 'PASS I2 — brief and contact are still separate columns after a round trip';
+
+  -- Provenance is append-only: "80 until message four said 95" is the history the
+  -- conflict rule in §4.10 is written against.
+  select count(*) into history from extractions
+   where inquiry_id = target and field_path = 'guestCount';
+  if history <> 2 then
+    raise exception 'F3.3: expected 2 provenance rows, found %', history;
+  end if;
+  raise notice 'PASS F3.3 — provenance rows accumulate rather than being overwritten';
+
+  select confidence into stored_confidence from extractions
+   where inquiry_id = target and field_path = 'guestCount' and value_json::text = '80';
+  if stored_confidence <> 1 then
+    raise exception 'F3.3: a confidence of 1.4 stored as % instead of being clamped',
+      stored_confidence;
+  end if;
+  raise notice 'PASS F3.3 — an out-of-range confidence is clamped, not rejected';
+end $$;
+
 select 'ALL DATABASE ASSERTIONS PASSED' as result;

@@ -241,18 +241,39 @@ Also here: D17's zero-retention requirement is an account setting, not a request
 parameter, so what the code can assert is that no model ineligible for it is
 reachable — `claude-fable-5` is refused by the registry with the reason named.
 
-#### 2. F3.3 / F3.5 — extraction: a chat turn becomes an `EventBrief`
+#### 2. F3.3 / F3.5 — extraction: a chat turn becomes an `EventBrief` ✅ **done 2026-08-09**
 
-The types are already built and tested: `EventBrief` (F3.1), the `_contact` partition
-(F3.2), and the confidence policy table (F3.6, `evaluateConfidence()`). What is missing
-is the call that fills them in.
+`src/agent/extraction.ts`. The types were already built and tested — `EventBrief`
+(F3.1), the `_contact` partition (F3.2), the confidence table (F3.6) — and this is the
+call that fills them in.
 
-- Customer text → `EventBrief` with `{value, confidence, source}` per field.
-- Write `extractions` rows so every field has provenance.
-- **Customer content is data, never instructions** (F3.11). Delimited, labelled blocks;
-  `injection_suspected` escalates and never complies.
-- Contact details go to `_contact` and must not reach `PricingInput` — I2 has a test
-  that will fail loudly if they do. Do not weaken it to make this easier.
+What the model decides: which fields the customer stated, what each holds, how sure it
+is, and which message it came from. What it does not decide: whether that is good
+enough to send (`evaluateConfidence`, in code), what anything costs (the engine), what
+language the conversation is in (`detectLanguageAndFormality`, already deterministic
+and tested), or whether the inquiry proceeds — nothing decides that.
+
+- **Completeness and overall confidence are computed, not asked for.** A model's
+  estimate of its own reliability is not a measurement, and these two numbers are the
+  gate on sending a quote unattended.
+- **An invented service id is discarded** (D8). The model is given the agency's own ids
+  and told not to substitute a similar one; anything not in the catalogue is dropped
+  before it reaches a brief, and dropped from the provenance rows too, so it cannot
+  reappear as the justification for a line item that was never quoted.
+- **`extractions` rows append, never overwrite** (migration 0009). "80 until message
+  four said 95" is the history the conflict rule in §4.10 is written against.
+- **An owner's correction survives a later model run.** `mergeExtracted` was already
+  there; `mergeBrief` uses it field by field, and silence in a later turn is not
+  retraction.
+- **F3.11 is reported, not obeyed.** `injection_suspected` escalates, changes no other
+  field, and refuses nobody — Invariant 1 has no exception for a rude message.
+- **I2 survives the round trip**, and a database assertion proves it: brief and contact
+  go in as two arguments, through two parameters, into two columns. A test serialises
+  the whole brief and searches it for the customer's name, because the realistic way
+  this breaks is a name smuggled into `location`.
+
+**Not yet wired into the chat route.** Nothing calls extraction when a turn arrives —
+that lands with step 3, at the point where it produces a quote a customer can open.
 
 #### 3. `EventBrief` → `PricingInput` → a stored quote version
 

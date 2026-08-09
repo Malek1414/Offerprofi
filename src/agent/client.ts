@@ -32,6 +32,8 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk'
+import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
+import type { ZodType } from 'zod'
 
 import {
   type ModelId,
@@ -164,6 +166,20 @@ function getClient(): Anthropic | null {
 /** Test seam. Resets the memoised client so a changed environment is picked up. */
 export function resetClient(): void {
   client = null
+}
+
+/**
+ * The JSON schema for `outputSchema`, derived from the zod schema the caller
+ * already validates with.
+ *
+ * Here rather than at the call site because it is the SDK's converter, and the SDK
+ * lives behind this file. It also means the schema sent to the model and the schema
+ * the response is checked against cannot drift — hand-writing the JSON version
+ * beside a zod version is two descriptions of one thing, and they diverge on the
+ * first field anyone adds.
+ */
+export function jsonSchemaFor(schema: ZodType): Record<string, unknown> {
+  return zodOutputFormat(schema).schema as Record<string, unknown>
 }
 
 export async function callModel(request: ModelRequest): Promise<ModelOutcome> {

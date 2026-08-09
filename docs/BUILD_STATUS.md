@@ -62,7 +62,9 @@ request path, not just in a test).
 | F0.11 Anthropic client wrapper | **Done** | `src/agent/client.ts` is the only file that may import the SDK — enforced by a lint rule and by `tests/agent/boundary.test.ts`. Every call writes an `agent_runs` row through a SECURITY DEFINER function, failed calls included. Returns a failure that escalates; never throws at a customer |
 | F0.12 feature-flag table | **Not started** | Needed to ship Phases 10–12 dark |
 | F0.13 external verification track | **Not started** | Non-code, day-1 item (§5). DPA, Stripe, Cloudflare, Meta, Google, counsel |
-| F3.1/F3.2 EventBrief + `_contact` | **Done** | Types and confidence policy. Extraction worker not built |
+| F3.1/F3.2 EventBrief + `_contact` | **Done** | Types and confidence policy |
+| F3.3/F3.5 extraction | **Done** | `src/agent/extraction.ts` — transcript → `EventBrief` + `ContactPartition`, one `extractions` row per field. Invented service ids are discarded (D8); language and formality stay deterministic; completeness and overall confidence are computed here, not asked for |
+| F3.11 injection handling | **Done** | Untrusted blocks with the delimiter escaped (`src/agent/prompt.ts`). `injection_suspected` is reported and escalates; it changes no other field and refuses nobody |
 | F3.6 confidence policy | **Done** | `evaluateConfidence()` implements the §4.10 table |
 | F4.1 `PricingInput` + pure function | **Done** | No I/O, no model call, no personal field. Purity asserted by test |
 | F4.2 calculation order + trace | **Done** | Spec §7.3 order 1–9; every figure reconstructible from the trace |
@@ -110,7 +112,9 @@ Everything else in the inventory. Named explicitly rather than left to inference
   non-overlapping by construction. A band under the item floor is rejected at entry,
   because the engine would otherwise clamp it silently and price at the floor with
   nothing to explain the difference.
-- **Phase 3** the extraction worker itself (types exist, the Claude calls do not).
+- **Phase 3** the in-chat qualifying loop (F3.7–F3.10) and the detail form. Extraction
+  itself (F3.3/F3.5/F3.11) is **done**, but nothing calls it from the chat route yet —
+  that wiring lands with step 3, where it produces a quote a customer can open.
 - **Phase 4** calendar sync (F4.9–F4.12) and the VIES lookup behind F4.5.
   `AvailabilityOutcome` is consumed by the engine but nothing populates it yet, so
   **Phase 4 is not complete** — the pricing and guardrail half is, the calendar half
