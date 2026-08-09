@@ -425,7 +425,7 @@ set role app_login;
 do $$
 declare
   target uuid := current_setting('test.inquiry_id')::uuid;
-  other_agency uuid := 'aaaaaaaa-0000-0000-0000-000000000002';
+  other_agency uuid := 'bbbbbbbb-0000-0000-0000-000000000002';
 begin
   perform set_config('app.current_user_id', '', false);
 
@@ -515,7 +515,7 @@ set role app_login;
 do $$
 declare
   target uuid := current_setting('test.inquiry_id')::uuid;
-  other_agency uuid := 'aaaaaaaa-0000-0000-0000-000000000002';
+  other_agency uuid := 'bbbbbbbb-0000-0000-0000-000000000002';
   ctx record;
   resulting inquiry_state;
 begin
@@ -658,7 +658,7 @@ set role app_login;
 do $$
 declare
   target uuid := current_setting('test.send_inquiry_id')::uuid;
-  other_agency uuid := 'aaaaaaaa-0000-0000-0000-000000000002';
+  other_agency uuid := 'bbbbbbbb-0000-0000-0000-000000000002';
   agency uuid := 'aaaaaaaa-0000-0000-0000-000000000001';
   sent record;
   doc record;
@@ -779,5 +779,85 @@ begin
   end if;
   raise notice 'PASS F0.4 — request_links is not readable across tenants';
 end $$;
+
+-- ─── 0012: the catalogue read the price suggestion uses ─────────────────────
+--
+-- Three items, because the assertion is about which ones come back: one confirmed
+-- and active, one confirmed but retired, one never confirmed. Inserted as the
+-- owner of the database — a member seat would work too, but the point here is the
+-- definer function's filtering, not the policy underneath it.
+
+insert into catalog_items
+  (agency_id, name, unit, unit_price_cents, floor_price_cents, cost_cents,
+   quantity_driver, active, confirmed_at)
+values
+  ('aaaaaaaa-0000-0000-0000-000000000001', 'Buffet Klassik', 'Person',
+   7850, 6500, null, 'per_guest', true, now()),
+  ('aaaaaaaa-0000-0000-0000-000000000001', 'Servicekraft', 'Stunde',
+   3900, 3200, 2400, 'per_hour', true, now()),
+  ('aaaaaaaa-0000-0000-0000-000000000001', 'Eingestelltes Menü', 'Person',
+   6000, 6000, null, 'per_guest', false, now()),
+  ('bbbbbbbb-0000-0000-0000-000000000002', 'Fremdes Buffet', 'Person',
+   9900, 9900, null, 'per_guest', true, now());
+
+set role app_login;
+
+do $$
+declare
+  agency uuid := 'aaaaaaaa-0000-0000-0000-000000000001';
+  rows_seen int;
+  costed record;
+begin
+  perform set_config('app.current_user_id', '', false);
+
+  -- F2.8, the rule that nothing unconfirmed is ever used, applied to pricing: a
+  -- suggestion built from a candidate the owner never approved is exactly the use
+  -- that rule forbids.
+  select count(*) into rows_seen from public.catalogue_for_pricing(agency);
+  if rows_seen = 0 then
+    raise exception 'Phase B2: the pricing read returned nothing for a tenant with a catalogue';
+  end if;
+
+  if exists (
+    select 1 from public.catalogue_for_pricing(agency) c
+      join catalog_items ci on ci.id = c.id
+     where ci.confirmed_at is null or not ci.active
+  ) then
+    raise exception 'F2.8/Phase B2: an unconfirmed or inactive item reached the pricing read';
+  end if;
+  raise notice 'PASS F2.8 — only confirmed, active items reach the price suggestion';
+
+  if rows_seen <> 2 then
+    raise exception 'Phase B2: expected 2 confirmed active items, got %', rows_seen;
+  end if;
+
+  -- Cost is nullable and stays null until someone fills it in. Defaulting it to
+  -- zero would report every un-costed line as pure profit, which is the one way
+  -- this feature could mislead the person it is built for.
+  select * into costed from public.catalogue_for_pricing(agency)
+   where name = 'Buffet Klassik';
+  if costed.cost_cents is not null then
+    raise exception 'Phase B2: an unfilled cost came back as % instead of null', costed.cost_cents;
+  end if;
+
+  select * into costed from public.catalogue_for_pricing(agency) where name = 'Servicekraft';
+  if costed.cost_cents <> 2400 then
+    raise exception 'Phase B2: a recorded cost came back as %', costed.cost_cents;
+  end if;
+  raise notice 'PASS Phase B2 — a recorded cost is returned, an unfilled one stays null';
+
+  -- Another tenant's catalogue is another tenant's. The function is definer, so
+  -- nothing but the argument scopes it.
+  if exists (
+    select 1 from public.catalogue_for_pricing('bbbbbbbb-0000-0000-0000-000000000002') c
+      join catalog_items ci on ci.id = c.id
+     where ci.agency_id = agency
+  ) then
+    raise exception 'F0.4: catalogue_for_pricing crossed tenants';
+  end if;
+  raise notice 'PASS F0.4 — the pricing read is scoped to the agency it is asked about';
+end $$;
+
+reset role;
 
 select 'ALL DATABASE ASSERTIONS PASSED' as result;

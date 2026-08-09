@@ -187,7 +187,6 @@ function occasionLabel(value: string, de: boolean): string {
   const labels: Record<string, [string, string]> = {
     wedding: ['Hochzeit', 'Wedding'],
     corporate: ['Firmenfeier', 'Corporate event'],
-    birthday: ['Geburtstag', 'Birthday'],
     private_party: ['Private Feier', 'Private party'],
     conference: ['Konferenz', 'Conference'],
     funeral: ['Trauerfeier', 'Funeral'],
@@ -200,9 +199,10 @@ function serviceStyleLabel(value: string, de: boolean): string {
   const labels: Record<string, [string, string]> = {
     buffet: ['Buffet', 'Buffet'],
     plated: ['Am Tisch serviert', 'Plated'],
-    family: ['Familienstil', 'Family style'],
+    family_style: ['Familienstil', 'Family style'],
     fingerfood: ['Fingerfood', 'Finger food'],
-    delivery: ['Anlieferung', 'Delivery'],
+    food_station: ['Food-Stationen', 'Food stations'],
+    delivery_only: ['Nur Anlieferung', 'Delivery only'],
   }
   return pick(labels[value], value, de)
 }
@@ -210,11 +210,11 @@ function serviceStyleLabel(value: string, de: boolean): string {
 function mealTypeLabel(value: string, de: boolean): string {
   const labels: Record<string, [string, string]> = {
     breakfast: ['Frühstück', 'Breakfast'],
-    brunch: ['Brunch', 'Brunch'],
     lunch: ['Mittagessen', 'Lunch'],
     dinner: ['Abendessen', 'Dinner'],
     snacks: ['Snacks', 'Snacks'],
-    drinks: ['Getränke', 'Drinks'],
+    drinks_only: ['Nur Getränke', 'Drinks only'],
+    full_day: ['Ganztägig', 'Full day'],
   }
   return pick(labels[value], value, de)
 }

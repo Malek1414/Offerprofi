@@ -25,6 +25,18 @@ import { fullCatalogue, ITEM_DECOR, minimalPricingInput } from '../fixtures/cata
 
 const read = (p: string) => readFileSync(fileURLToPath(new URL(`../../src/${p}`, import.meta.url)), 'utf8')
 
+/**
+ * The source with its comments removed.
+ *
+ * These files explain at length *why* contact data may not reach pricing, so a
+ * naive grep for "ContactPartition" fires on the documentation that exists to
+ * prevent the very thing being checked. The rule is about code.
+ */
+const code = (p: string) =>
+  read(p)
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/.*$/gm, '')
+
 /** Anything that describes a person rather than an event. */
 const PERSONAL_FIELD_NAMES = [
   'name',
@@ -63,6 +75,51 @@ describe('I2 — no personal data in pricing', () => {
     }
   })
 
+  it('declares no personal field on the second door into pricing', () => {
+    // Phase B2 added `requestToPricingInput`, which builds the same type from a
+    // CateringRequest. A rule enforced on one of two entry points is not enforced:
+    // the realistic way I2 breaks now is a contact threaded through the newer one.
+    const source = code('domain/request-pricing-input.ts')
+
+    expect(source).not.toContain('ContactPartition')
+
+    const start = source.indexOf('export function requestToPricingInput')
+    expect(start, 'requestToPricingInput must exist').toBeGreaterThan(-1)
+    const signature = source.slice(start, source.indexOf('{', source.indexOf('options', start)))
+    expect(signature).not.toContain('Contact')
+    expect(signature).toContain('request: CateringRequest')
+
+    // The body may read only event attributes off the request.
+    const body = source.slice(start, source.indexOf('\n}', start))
+    for (const field of PERSONAL_FIELD_NAMES) {
+      expect(
+        new RegExp(`request\\.${field}\\b`).test(body),
+        `requestToPricingInput reads request.${field} — personal data may not reach pricing (D24).`,
+      ).toBe(false)
+    }
+  })
+
+  it('keeps CateringRequest free of contact fields', () => {
+    const source = read('domain/catering-request.ts')
+    const start = source.indexOf('export interface CateringRequest')
+    const body = source.slice(start, source.indexOf('\n}', start))
+
+    for (const field of ['email', 'phoneE164', 'vatId', 'company', 'name']) {
+      expect(
+        new RegExp(`^\\s*${field}\\s*[?:]`, 'im').test(body),
+        `CateringRequest declares "${field}" — it belongs in ContactPartition`,
+      ).toBe(false)
+    }
+  })
+
+  it('keeps the margin wrapper away from people too', () => {
+    // Margin is the one figure the pivot added, and it is rendered next to the
+    // customer's name on the owner's page. Nothing about her may enter it.
+    const source = code('engine/margin.ts')
+    expect(source).not.toContain('ContactPartition')
+    expect(source).not.toContain('contact')
+  })
+
   it('keeps EventBrief free of contact fields', () => {
     const source = read('domain/event-brief.ts')
     const start = source.indexOf('export interface EventBrief')
@@ -78,7 +135,7 @@ describe('I2 — no personal data in pricing', () => {
   })
 
   it('never imports the contact partition into the pricing engine', () => {
-    const engine = read('engine/pricing.ts')
+    const engine = code('engine/pricing.ts')
     expect(engine).not.toContain('ContactPartition')
     expect(engine).not.toContain('contact')
   })

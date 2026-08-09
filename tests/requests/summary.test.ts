@@ -105,14 +105,14 @@ describe('rendering values a person reads', () => {
   it('shows an unknown enum value rather than swallowing it', () => {
     const odd = request({
       serviceStyle: {
-        value: 'family_style' as never,
+        value: 'family_buffet_hybrid' as never,
         confidence: 0.9,
         source: 'm1',
         sourceKind: 'ai',
       },
     })
     expect(requestRows(odd, 'owner').find((r) => r.field === 'serviceStyle')?.value).toBe(
-      'family_style',
+      'family_buffet_hybrid',
     )
   })
 

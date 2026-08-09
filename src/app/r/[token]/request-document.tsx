@@ -23,10 +23,12 @@
 
 import type { ContactPartition } from '../../../domain/extracted'
 import { requestLegalBlock } from '../../../domain/legal'
+import { formatCents } from '../../../domain/money'
 import type { AgencyTheme } from '../../../lib/theme'
 import { themeStyle } from '../../../lib/theme'
 import type { RequestAgency } from '../../../requests/repository'
 import type { RequestAudience } from '../../../requests/links'
+import type { SuggestionOutcome } from '../../../requests/suggestion'
 import type { DocumentLanguage, SummaryRow } from '../../../requests/summary'
 
 export interface RequestDocumentProps {
@@ -38,6 +40,15 @@ export interface RequestDocumentProps {
   contact: ContactPartition | null
   sentAt: string
   language: DocumentLanguage
+  /**
+   * Owner audience only (Phase B2).
+   *
+   * The route passes `null` for the customer's token and never computes one — so
+   * the price block is not something this component hides from her, it is
+   * something it was never given. That is the same shape as `contact`, and it is
+   * what the price-leak test relies on.
+   */
+  suggestion?: SuggestionOutcome | null
 }
 
 export function RequestDocument(props: RequestDocumentProps) {
@@ -95,6 +106,12 @@ export function RequestDocument(props: RequestDocumentProps) {
         ) : null}
       </section>
 
+      {/* Phase B2 — the suggestion. Only ever rendered for the owner, and only
+          because only the owner's props carry one. */}
+      {owner && props.suggestion ? (
+        <SuggestionBlock outcome={props.suggestion} de={de} language={language} />
+      ) : null}
+
       {owner ? (
         <section className="next" aria-label={de ? 'Nächster Schritt' : 'Next step'}>
           <p>
@@ -123,6 +140,152 @@ export function RequestDocument(props: RequestDocumentProps) {
         )}
       </footer>
     </article>
+  )
+}
+
+/**
+ * "For this request I'd suggest €6,240 — here is each service, here is what you keep."
+ *
+ * Framed as a suggestion in the heading, in the body, and in the fact that the
+ * next section tells him to reply in his own words. He is meant to overrule it.
+ *
+ * Every figure comes from the engine. Nothing is computed in this file — a total
+ * added up in JSX is a second pricing path, and there is exactly one (D6).
+ */
+function SuggestionBlock({
+  outcome,
+  de,
+  language,
+}: {
+  outcome: SuggestionOutcome
+  de: boolean
+  language: DocumentLanguage
+}) {
+  if (!outcome.ok) {
+    // Never an error. He came to read an enquiry; the suggestion is the extra.
+    const why = de
+      ? {
+          no_catalogue:
+            'Für einen Preisvorschlag fehlt noch Ihre Leistungsliste — sobald die steht, rechnen wir hier mit.',
+          no_match:
+            'Zu dieser Anfrage passt noch keine Ihrer Leistungen eindeutig — hier wäre sonst ein Preisvorschlag.',
+          unavailable: 'Der Preisvorschlag ist gerade nicht verfügbar.',
+        }[outcome.reason]
+      : {
+          no_catalogue:
+            'A price suggestion needs your service list — once it exists, it appears here.',
+          no_match: 'Nothing in your list clearly matches this enquiry yet.',
+          unavailable: 'The price suggestion is unavailable right now.',
+        }[outcome.reason]
+    return (
+      <section className="suggest suggest-empty" aria-label={de ? 'Preisvorschlag' : 'Suggestion'}>
+        <p className="eyebrow">{de ? 'Preisvorschlag' : 'Price suggestion'}</p>
+        <p className="muted">{why}</p>
+      </section>
+    )
+  }
+
+  const { quote, margin, rationale, unmatched } = outcome.suggestion
+
+  return (
+    <section className="suggest" aria-label={de ? 'Preisvorschlag' : 'Price suggestion'}>
+      <p className="eyebrow">{de ? 'Vorschlag — nur für Sie' : 'Suggestion — for you only'}</p>
+      <p className="headline">
+        {de ? 'Dafür würde ich ' : "For this I'd suggest "}
+        <strong>{formatCents(quote.grossTotal, language)}</strong>
+        {de ? ' vorschlagen.' : '.'}
+      </p>
+      {rationale ? <p className="muted">{rationale}</p> : null}
+
+      <table className="lines">
+        <thead>
+          <tr>
+            <th scope="col">{de ? 'Leistung' : 'Service'}</th>
+            <th scope="col" className="n">
+              {de ? 'Menge' : 'Qty'}
+            </th>
+            <th scope="col" className="n">
+              {de ? 'Netto' : 'Net'}
+            </th>
+            <th scope="col" className="n">
+              {de ? 'Ihr Anteil' : 'You keep'}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {quote.lines.map((line) => {
+            const m = margin.lines.find((x) => x.catalogItemId === line.catalogItemId)
+            return (
+              <tr key={line.catalogItemId}>
+                <td>{line.name}</td>
+                <td className="n">{line.quantity}</td>
+                <td className="n">{formatCents(line.net, language)}</td>
+                <td className="n">
+                  {m?.margin === null || m?.margin === undefined ? (
+                    <span className="unknown">{de ? 'Kosten fehlen' : 'no cost'}</span>
+                  ) : (
+                    <>
+                      {formatCents(m.margin, language)}
+                      {m.marginPct === null ? null : <span className="pct"> {m.marginPct}%</span>}
+                    </>
+                  )}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th scope="row" colSpan={2}>
+              {de ? 'Netto gesamt' : 'Net total'}
+            </th>
+            <td className="n">{formatCents(quote.netTotal, language)}</td>
+            <td className="n">
+              {margin.hasAnyCost ? (
+                <>
+                  <strong>{formatCents(margin.margin, language)}</strong>
+                  {margin.marginPct === null ? null : (
+                    <span className="pct"> {margin.marginPct}%</span>
+                  )}
+                </>
+              ) : (
+                <span className="unknown">—</span>
+              )}
+            </td>
+          </tr>
+          <tr>
+            <th scope="row" colSpan={2}>
+              {de ? 'Brutto' : 'Gross'}
+            </th>
+            <td className="n">{formatCents(quote.grossTotal, language)}</td>
+            <td />
+          </tr>
+        </tfoot>
+      </table>
+
+      {/* An omission that flattered the margin would be the one way this misleads
+          him, so the gap is named rather than absorbed. */}
+      {margin.unknownCostLines.length ? (
+        <p className="muted small">
+          {de
+            ? `Ohne hinterlegte Kosten: ${margin.unknownCostLines.map((l) => l.name).join(', ')} — dafür ist kein Anteil berechnet.`
+            : `No cost recorded for: ${margin.unknownCostLines.map((l) => l.name).join(', ')} — nothing is claimed about those.`}
+        </p>
+      ) : null}
+
+      {unmatched.length ? (
+        <p className="muted small">
+          {de ? 'Nicht abgedeckt: ' : 'Not covered: '}
+          {unmatched.join(', ')}
+        </p>
+      ) : null}
+
+      <p className="muted small">
+        {de
+          ? 'Vorschlag aus Ihrer eigenen Preisliste. Die Kundin sieht davon nichts.'
+          : 'Suggested from your own price list. The customer sees none of this.'}
+      </p>
+    </section>
   )
 }
 
@@ -203,6 +366,28 @@ const CSS = `
   font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted);
 }
 .doc .empty { color: var(--muted); }
+/* Phase B2 — the suggestion. Visually a panel, not part of the request: he is
+   meant to read it as advice he overrules, not as a figure already committed. */
+.doc .suggest {
+  margin-top: 1.75rem; padding: 1rem;
+  background: var(--brand-wash, #f6f7f9);
+  border: 1px solid var(--line); border-radius: 0.5rem;
+}
+.doc .suggest .headline { margin: 0.35rem 0 0; font-size: 1.125rem; }
+.doc .suggest .muted { margin: 0.4rem 0 0; color: var(--muted); }
+.doc .suggest .small { font-size: 0.8125rem; }
+.doc .suggest-empty .muted { margin-top: 0.25rem; }
+.doc .lines { width: 100%; margin-top: 0.9rem; border-collapse: collapse; font-size: 0.9375rem; }
+.doc .lines th, .doc .lines td { padding: 0.4rem 0.3rem; text-align: left; }
+.doc .lines thead th {
+  font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--line);
+}
+.doc .lines tbody td { border-bottom: 1px solid var(--line); }
+.doc .lines tfoot th, .doc .lines tfoot td { padding-top: 0.6rem; }
+.doc .lines .n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.doc .lines .pct { color: var(--muted); font-size: 0.8125rem; }
+.doc .lines .unknown { color: var(--muted); font-size: 0.8125rem; }
 .doc .next { margin-top: 1.5rem; padding: 0.9rem 1rem; border-left: 3px solid var(--brand, var(--ink)); }
 .doc .next p { margin: 0; }
 .doc .foot { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--line); }
@@ -211,6 +396,9 @@ const CSS = `
 @media (max-width: 30rem) {
   .doc .row { grid-template-columns: 1fr; gap: 0.1rem; }
   .doc .head { flex-direction: column; }
+  /* He reads this standing in a kitchen. The table scrolls rather than the page. */
+  .doc .suggest { overflow-x: auto; }
+  .doc .lines { min-width: 22rem; }
 }
 @media (prefers-color-scheme: dark) {
   .doc {

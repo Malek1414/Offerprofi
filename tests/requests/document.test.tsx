@@ -23,10 +23,15 @@ import { describe, expect, it } from 'vitest'
 import { RequestDocument } from '../../src/app/r/[token]/request-document'
 import type { CateringRequest } from '../../src/domain/catering-request'
 import type { ContactPartition } from '../../src/domain/extracted'
+import { eurosToCents } from '../../src/domain/money'
+import { costTable, summariseMargin } from '../../src/engine/margin'
+import { priceQuote } from '../../src/engine/pricing'
 import { buildAgencyTheme } from '../../src/lib/theme'
 import type { RequestAgency } from '../../src/requests/repository'
+import type { SuggestionOutcome } from '../../src/requests/suggestion'
 import { requestRows } from '../../src/requests/summary'
 import type { RequestAudience } from '../../src/requests/links'
+import { ITEM_CATERING, ITEM_PLANNING, fullCatalogue, minimalPricingInput } from '../fixtures/catalogue'
 
 const AGENCY: RequestAgency = {
   name: 'Kraut & Rüben Catering',
@@ -67,7 +72,60 @@ function request(overrides: Partial<CateringRequest> = {}): CateringRequest {
   }
 }
 
-function render(audience: RequestAudience, overrides: Partial<CateringRequest> = {}): string {
+/**
+ * What a person can actually read on the page.
+ *
+ * The document carries its stylesheet inline, and CSS is full of things that look
+ * like amounts — `0.9375rem`, `1.25rem`. A leak test that trips over a border
+ * radius gets loosened until it stops catching anything. Markup and styles out,
+ * text in.
+ */
+function visibleText(html: string): string {
+  return html
+    .replace(/<style>[\s\S]*?<\/style>/g, ' ')
+    .replace(/<script[\s\S]*?<\/script>/g, ' ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+}
+
+/**
+ * A real priced suggestion, from the real engine and the real margin wrapper.
+ *
+ * Deliberately not a stub. The point of the leak test is that a *populated* price
+ * block never reaches her page, and an empty stub would pass while proving nothing.
+ */
+function suggestion(): SuggestionOutcome {
+  const quote = priceQuote(
+    { ...minimalPricingInput(), serviceIds: [ITEM_PLANNING, ITEM_CATERING] },
+    fullCatalogue(),
+  )
+  return {
+    ok: true,
+    suggestion: {
+      quote,
+      margin: summariseMargin(
+        quote,
+        costTable([
+          { id: ITEM_PLANNING, costCents: Number(eurosToCents(820)) },
+          { id: ITEM_CATERING, costCents: Number(eurosToCents(31.4)) },
+        ]),
+      ),
+      rationale: 'Menü und Planung passen; Personal ist im Buffetpreis enthalten.',
+      unmatched: ['Paella-Station'],
+    },
+  }
+}
+
+function render(
+  audience: RequestAudience,
+  overrides: Partial<CateringRequest> = {},
+  /**
+   * What the *route* would pass. The customer branch never computes a suggestion,
+   * so the honest default is null — and the leak test below overrides it anyway,
+   * because "we remembered not to pass it" is the weaker guarantee.
+   */
+  withSuggestion: SuggestionOutcome | null = audience === 'owner' ? suggestion() : null,
+): string {
   const req = request(overrides)
   return renderToStaticMarkup(
     <RequestDocument
@@ -79,6 +137,7 @@ function render(audience: RequestAudience, overrides: Partial<CateringRequest> =
       contact={audience === 'owner' ? CONTACT : null}
       sentAt="2026-08-09T15:00:00.000Z"
       language="de"
+      suggestion={withSuggestion}
     />,
   )
 }
@@ -87,10 +146,11 @@ describe('the customer’s copy', () => {
   const html = render('customer')
 
   it('contains no currency symbol and no amount', () => {
-    expect(html).not.toMatch(/€|EUR|\bEuro\b/i)
+    const text = visibleText(html)
+    expect(text).not.toMatch(/€|EUR|\bEuro\b/i)
     // Her budget is the only monetary value that exists at this stage, and it is
     // information for him. 6000 must not appear in any form.
-    expect(html).not.toMatch(/6[.,]?000/)
+    expect(text).not.toMatch(/6[.,]?000/)
   })
 
   it('contains no word that only a priced document has', () => {
@@ -129,6 +189,24 @@ describe('the customer’s copy', () => {
     expect(html).not.toContain('4915112345678')
   })
 
+  it('renders no price block even when one is handed to it', () => {
+    // THE PHASE B2 REGRESSION, IN ONE TEST.
+    //
+    // The realistic way the price block leaks is a conditional that renders for
+    // both audiences — a `props.suggestion ? …` without the `owner &&`. So this
+    // forces a fully priced suggestion into the customer's props and asserts the
+    // page still has no money on it. The route does not pass one; this proves the
+    // component would not use it if a future edit did.
+    const text = visibleText(render('customer', {}, suggestion()))
+
+    expect(text).not.toMatch(/€|EUR|\bEuro\b/i)
+    // Any figure with cents on it. The engine renders money and nothing else this way.
+    expect(text).not.toMatch(/\d[.,]\d{2}\b/)
+    expect(text).not.toContain('Vorschlag')
+    expect(text).not.toContain('Ihr Anteil')
+    expect(text).not.toContain('Hochzeitsplanung')
+  })
+
   it('shows no confidence marks', () => {
     // Headcount is at 0.6 above. He should double-check it; telling her we are
     // unsure about her own sentence teaches her nothing and costs trust.
@@ -157,6 +235,45 @@ describe('the owner’s copy', () => {
 
   it('tells him to answer in plain language', () => {
     expect(html).toMatch(/normaler Sprache/)
+  })
+
+  it('shows the suggested price, the lines and what he keeps', () => {
+    expect(html).toContain('Vorschlag')
+    expect(html).toContain('Ihr Anteil')
+    expect(html).toContain('Hochzeitsplanung Komplett')
+    // Framed as advice he overrules, not as a figure already committed.
+    expect(html).toMatch(/würde ich/)
+    expect(html).toContain('Die Kundin sieht davon nichts')
+  })
+
+  it('names the services with no cost recorded rather than flattering the margin', () => {
+    // Décor has no cost in the fixture. An omission absorbed silently would report
+    // it as pure profit, on the screen where he decides whether to take the job.
+    const quote = priceQuote(
+      { ...minimalPricingInput(), serviceIds: [ITEM_PLANNING, ITEM_CATERING] },
+      fullCatalogue(),
+    )
+    const partial: SuggestionOutcome = {
+      ok: true,
+      suggestion: {
+        quote,
+        margin: summariseMargin(
+          quote,
+          costTable([{ id: ITEM_PLANNING, costCents: Number(eurosToCents(820)) }]),
+        ),
+        rationale: '',
+        unmatched: [],
+      },
+    }
+    const partialHtml = render('owner', {}, partial)
+    expect(partialHtml).toContain('Ohne hinterlegte Kosten')
+    expect(partialHtml).toContain('Kosten fehlen')
+  })
+
+  it('says why there is no suggestion instead of showing an error', () => {
+    const empty = render('owner', {}, { ok: false, reason: 'no_catalogue' })
+    expect(empty).toContain('Leistungsliste')
+    expect(empty.toLowerCase()).not.toContain('error')
   })
 
   it('tells him he is free — nothing was quoted to her', () => {

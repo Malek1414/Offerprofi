@@ -18,6 +18,7 @@ import { syntheticContentMarking } from '../../../domain/legal'
 import { buildAgencyTheme } from '../../../lib/theme'
 import { isPlausibleRequestToken } from '../../../requests/links'
 import { resolveRequestLink } from '../../../requests/repository'
+import { suggestPrice } from '../../../requests/suggestion'
 import { requestRows } from '../../../requests/summary'
 import { RequestDocument } from './request-document'
 
@@ -49,6 +50,15 @@ export default async function RequestPage({ params }: { params: Promise<{ token:
     : []
   const theme = buildAgencyTheme(resolved.agency.brandColor)
 
+  // Phase B2. Computed only for the owner's token — the customer's render never
+  // calls this, so there is no price in her page to hide. Recomputed per view
+  // rather than stored: his catalogue may have changed since she sent, and a
+  // cached figure presented as today's suggestion is the one way it could mislead.
+  const suggestion =
+    resolved.audience === 'owner' && resolved.request
+      ? await suggestPrice(resolved.agencyId, resolved.request, resolved.inquiryId)
+      : null
+
   return (
     <>
       {/* AI Act Art. 50(2) — machine-readable marking of synthetic content. */}
@@ -66,6 +76,7 @@ export default async function RequestPage({ params }: { params: Promise<{ token:
         contact={resolved.contact}
         sentAt={resolved.sentAt}
         language={language}
+        suggestion={suggestion}
       />
     </>
   )
