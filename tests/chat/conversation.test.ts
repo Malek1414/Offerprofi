@@ -9,9 +9,13 @@ import { triageInbound } from '../../src/chat/abuse'
 import {
   type ComposeInput,
   composeAgentTurns,
+  handoffNotice,
   humanRequestedNotice,
+  missingFieldQuestion,
+  readyToSendLine,
   streamChunks,
 } from '../../src/chat/conversation'
+import { REQUIRED_REQUEST_FIELDS } from '../../src/domain/catering-request'
 import { isPlausibleSlug } from '../../src/lib/agency'
 
 const ACK_PARAMS: AckParams = {
@@ -137,6 +141,52 @@ describe('F1.7 — streaming', () => {
   it('handles empty text without emitting a chunk', () => {
     expect(streamChunks('')).toEqual([])
     expect(streamChunks('   ')).toEqual([])
+  })
+})
+
+describe('the copy the qualifying loop falls back on', () => {
+  const voices = [
+    ['de', 'sie'],
+    ['de', 'du'],
+    ['en', 'sie'],
+  ] as const
+
+  it('never sounds like a refusal, in any voice', () => {
+    // This one line is what every failure inside a qualifying turn says — a model
+    // timeout, an unparseable answer, a suspected injection. If it ever reads as
+    // "no", Invariant 1 has been broken in the only place the customer can see.
+    for (const [language, formality] of voices) {
+      const text = handoffNotice(language, formality, 'Johannes').toLowerCase()
+      expect(text).toContain('johannes')
+      expect(text).not.toMatch(
+        /leider|können wir nicht|nicht möglich|abgelehnt|kein interesse|zu klein|unfortunately|cannot help|we can't take/,
+      )
+    }
+  })
+
+  it('promises a person rather than an apology', () => {
+    expect(handoffNotice('de', 'du', 'Johannes')).toContain('meldet sich persönlich bei dir')
+    expect(handoffNotice('de', 'sie', 'Johannes')).toContain('meldet sich persönlich bei Ihnen')
+  })
+
+  it('names no price and no figure when the request is complete', () => {
+    // N1 on the customer's side. The assistant says who prices it, never what it
+    // costs — and this line is the one place that claim is made in our own words.
+    for (const [language, formality] of voices) {
+      const text = readyToSendLine(language, formality, 'Johannes')
+      expect(text).toContain('Johannes')
+      expect(text).not.toMatch(/[€$]|\d/)
+    }
+  })
+
+  it('has a question for every required field, in both languages', () => {
+    for (const field of REQUIRED_REQUEST_FIELDS) {
+      for (const [language, formality] of voices) {
+        const text = missingFieldQuestion(field, language, formality)
+        expect(text.length).toBeGreaterThan(10)
+        expect(text.endsWith('?')).toBe(true)
+      }
+    }
   })
 })
 

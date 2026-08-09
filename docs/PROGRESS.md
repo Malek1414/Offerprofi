@@ -31,13 +31,14 @@
 > - **Phase B (module)** — `src/agent/qualify.ts`. `readyToSend` computed in code, questions
 >   written by the model, capped and filtered here, and no schema field by which it could
 >   decline anyone.
+> - **Phase B (wired)** — `src/chat/qualifying-turn.ts` + migration 0010. A customer's turn
+>   now runs extraction and the qualifying loop on the same SSE connection and streams the
+>   question back into the chat. See "The loop is wired" below for what that cost and what
+>   it still needs.
 >
 > ### Next, in order
 >
-> 1. **Wire Phase B into `src/app/api/chat/[slug]/route.ts`** — behind the first streamed
->    chunk, never in front of it. The wrinkle to plan for: `recordChatTurnDetached` discards
->    the inquiry id extraction needs, deliberately, to keep the write off the F1.9 path.
->    Chain off the same promise; do not start a second one.
+> 1. ~~Wire Phase B into the chat route.~~ **Done 2026-08-09.**
 > 2. **Phase D (web only)** — `/r/{token}`, one self-contained HTML file, two documents from
 >    one route. **The customer's copy must contain no price, total or margin, and a test
 >    must assert it** — this is the new spec's equivalent of the I2 test.
@@ -54,6 +55,42 @@
 > always-on worker container, because whisper.cpp and a model file cannot run in a serverless
 > function.
 
+> ## The loop is wired — 2026-08-09
+>
+> **A message now produces an answer written by a model.** `POST /api/chat/{slug}` streams the
+> disclosure, the privacy line and the acknowledgement exactly as before, then a `working`
+> frame, then the question. Extraction and the qualifying loop both run *behind* the first
+> chunk, chained off the same persistence promise the route already had — one write, one
+> inquiry, two consumers. The client needed no change: the typing indicator it already shows
+> while `busy` covers the gap.
+>
+> **The one thing left before this is a demo:** `ANTHROPIC_API_KEY` is set nowhere, so
+> `callModel` returns `not_configured`, the turn escalates, and the customer is told a person
+> is taking over. That is verified behaviour, end to end against real rows — inquiry
+> escalated, `automation_paused`, reason `extraction_not_configured`, audit row written. It is
+> also not a pitch. Set the key.
+>
+> **Things worth not rediscovering:**
+>
+> - `messages.created_at` defaulted to `now()`, the *transaction* timestamp, so two messages
+>   written in one transaction tied and "the last ten, oldest first" was an arbitrary order —
+>   a scrambled conversation handed to the model. 0010 changes the default to
+>   `clock_timestamp()`. Same mistake as the session-expiry one recorded further down, same
+>   fix, found the same way: a database assertion that failed for a reason that looked wrong.
+> - **`record_agent_progress` takes an outcome argument with exactly two legal values.** That
+>   is Invariant 1 in a function signature rather than in a comment, and there is an assertion
+>   proving a third raises. An escalated thread also cannot be pulled back to the agent — that
+>   edge is legal for a human and would otherwise undo I5 one turn after it fired.
+> - **Every failure inside a turn produces the same sentence to the customer** — a timeout, an
+>   unparseable answer, a suspected injection, a write that would not go through. One line,
+>   tested in all three voices to contain nothing that reads as a refusal. Varying it by
+>   failure kind is how one of them eventually sounds like "no".
+> - The agent stays quiet when triage routes to the owner's tray or the customer asked for a
+>   human. Two model calls on a bot's behalf is the cost half of that; talking over the owner
+>   is the I5 half.
+> - Outbound turns are **still not stored.** The transcript sent to the model is the customer's
+>   half only, which is consistent — but the caterer will eventually read this thread.
+
 > ## ⚠ If you are a new session, read “▶ PICK UP HERE” before touching anything
 >
 > **The priority changed on 2026-08-09 and it overrides the phase order in
@@ -66,7 +103,7 @@
 **Where the build actually is:** Phase 1 complete. Phase 0 at 50% and Phase 4 at 80% —
 both were previously recorded here as "complete" and neither was; see
 [BUILD_STATUS.md](BUILD_STATUS.md). Phase 2 is half built. Run `npm run progress` for a
-generated view (`docs/progress.html`) — **30% of 154 features**, derived from the
+generated view (`docs/progress.html`) — **33% of 154 features**, derived from the
 inventory rather than typed by hand, so it does not drift.
 
 **The one number that matters more than that one:** ~~there is no model call anywhere in
@@ -87,10 +124,15 @@ short version: where the work stopped, and what to pick up.
 ## State of the tree
 
 ```
-npm run verify     typecheck + lint + 349 tests        green
-npm run test:db    5 migrations + 2 assertion suites   green   (needs local Postgres)
-npm run build      production build                    clean
+npm run verify     typecheck + lint + 466 tests         green
+npm run test:db    10 migrations + 2 assertion suites   green   (needs local Postgres)
+npm run build      production build                     clean
 ```
+
+`npm run test:db` builds a scratch database; it does **not** touch `angebot_dev`. A new
+migration has to be applied to the development database by hand:
+`psql -d angebot_dev -f db/migrations/00NN_….sql`. Forgetting that is a function that
+exists in every test and in none of the browser runs.
 
 Four commits, all of Phase 0/1/4 and half of Phase 2 committed.
 

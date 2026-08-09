@@ -88,10 +88,15 @@ export async function recordChatTurn(turn: ChatTurnRecord): Promise<ChatTurnPers
  *
  * Deliberately not exported as something awaited on the request path. The name says
  * what it does so that a future caller reaching for it has to notice.
+ *
+ * It resolves with the inquiry it wrote, and null when there was nothing to write
+ * to or the write failed. That return is what the qualifying loop chains off:
+ * extraction needs the inquiry id, and starting a second write to obtain it would
+ * create a second inquiry for the same thread. One promise, two consumers.
  */
-export function recordChatTurnDetached(turn: ChatTurnRecord): Promise<void> {
+export function recordChatTurnDetached(turn: ChatTurnRecord): Promise<ChatTurnPersisted | null> {
   return recordChatTurn(turn).then(
-    () => undefined,
+    (persisted) => persisted,
     (error: unknown) => {
       // Structured enough to alert on. The turn is identified so the transcript can
       // be reconciled by hand if it ever matters.
@@ -103,6 +108,7 @@ export function recordChatTurnDetached(turn: ChatTurnRecord): Promise<void> {
           error: error instanceof Error ? error.message : String(error),
         }),
       )
+      return null
     },
   )
 }

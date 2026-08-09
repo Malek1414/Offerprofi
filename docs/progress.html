@@ -57,18 +57,18 @@
 <body>
 <div class="wrap">
   <h1>Build progress</h1>
-  <p class="sub">Quote automation for small event agencies · generated 2026-08-09 10:15</p>
+  <p class="sub">Quote automation for small event agencies · generated 2026-08-09 15:00</p>
 
   <div class="total">
-    <div class="big">32<span>%</span></div>
-    <p class="of">49.5 of 154 features</p>
-    <div class="bar" role="img" aria-label="32 percent of the build complete">
-      <div class="fill" style="width:32%"></div>
+    <div class="big">33<span>%</span></div>
+    <p class="of">50.5 of 154 features</p>
+    <div class="bar" role="img" aria-label="33 percent of the build complete">
+      <div class="fill" style="width:33%"></div>
     </div>
     <div class="legend">
-      <span><b>44</b> done</span>
+      <span><b>45</b> done</span>
       <span><b>11</b> partial</span>
-      <span><b>99</b> to go</span>
+      <span><b>98</b> to go</span>
     </div>
   </div>
 
@@ -188,12 +188,12 @@
     <section class="phase">
       <div class="phase-head">
         <h2>Phase 3 <span class="phase-label">Extraction → EventBrief</span></h2>
-        <span class="phase-pct">33%</span>
+        <span class="phase-pct">42%</span>
       </div>
-      <div class="bar" role="img" aria-label="33 percent">
-        <div class="fill" style="width:33%"></div>
+      <div class="bar" role="img" aria-label="42 percent">
+        <div class="fill" style="width:42%"></div>
       </div>
-      <p class="tally">4 done · 12 total</p>
+      <p class="tally">5 done · 12 total</p>
       <details>
         <summary>features</summary>
         <ul class="features">
@@ -203,7 +203,7 @@
           <li class="f todo"><span class="dot"></span><b>F3.4</b> Chat transcript parser → speaker turns (WhatsApp exports)</li>
           <li class="f todo"><span class="dot"></span><b>F3.5</b> extractions rows — field_path, value, confidence, source(ai\</li>
           <li class="f done"><span class="dot"></span><b>F3.6</b> Confidence policy engine — the spec §4.10 decision table<em>evaluateConfidence() implements the §4.10 table</em></li>
-          <li class="f todo"><span class="dot"></span><b>F3.7</b> Gap check — required fields by event type, configurable per agency</li>
+          <li class="f done"><span class="dot"></span><b>F3.7</b> Gap check — required fields by event type, configurable per agency<em>src/chat/qualifying-turn.ts — one turn runs extraction, stores the request, then asks at most two questions the model wrote from the fields code says are missing. Streams on the same connection as the ack, always behind it. Every failure path ends in a handoff to a person, never a refusal (I1, I5)</em></li>
           <li class="f todo"><span class="dot"></span><b>F3.8</b> In-chat qualifying questions with quick-reply chips</li>
           <li class="f todo"><span class="dot"></span><b>F3.9</b> Detail form /f/{token} — fields generated from gaps, autosave per field, partial submissions ingested, source='form', confidence 1.0</li>
           <li class="f todo"><span class="dot"></span><b>F3.10</b> Conflict handling — latest customer statement wins; the conflict is shown in the timeline, not silently resolved</li>

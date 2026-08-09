@@ -65,6 +65,8 @@ request path, not just in a test).
 | F3.1/F3.2 EventBrief + `_contact` | **Done** | Types and confidence policy |
 | F3.3/F3.5 extraction | **Done** | `src/agent/extraction.ts` — transcript → `EventBrief` + `ContactPartition`, one `extractions` row per field. Invented service ids are discarded (D8); language and formality stay deterministic; completeness and overall confidence are computed here, not asked for |
 | F3.11 injection handling | **Done** | Untrusted blocks with the delimiter escaped (`src/agent/prompt.ts`). `injection_suspected` is reported and escalates; it changes no other field and refuses nobody |
+| F3.7/F3.9/F3.10 qualifying loop, wired | **Done** | `src/chat/qualifying-turn.ts` — one turn runs extraction, stores the request, then asks at most two questions the model wrote from the fields code says are missing. Streams on the same connection as the ack, always behind it. Every failure path ends in a handoff to a person, never a refusal (I1, I5) |
+| Qualifying-loop storage | **Done** | Migration 0010: `conversation_context` (the bounded state one turn is given, fixed column list) and `record_agent_progress`, whose outcome argument admits exactly two values — Invariant 1 in a function signature. Six database assertions |
 | F3.6 confidence policy | **Done** | `evaluateConfidence()` implements the §4.10 table |
 | F4.1 `PricingInput` + pure function | **Done** | No I/O, no model call, no personal field. Purity asserted by test |
 | F4.2 calculation order + trace | **Done** | Spec §7.3 order 1–9; every figure reconstructible from the trace |
@@ -112,9 +114,12 @@ Everything else in the inventory. Named explicitly rather than left to inference
   non-overlapping by construction. A band under the item floor is rejected at entry,
   because the engine would otherwise clamp it silently and price at the floor with
   nothing to explain the difference.
-- **Phase 3** the in-chat qualifying loop (F3.7–F3.10) and the detail form. Extraction
-  itself (F3.3/F3.5/F3.11) is **done**, but nothing calls it from the chat route yet —
-  that wiring lands with step 3, where it produces a quote a customer can open.
+- **Phase 3** the detail form (F3.8). ~~The in-chat qualifying loop, and extraction
+  that nothing calls.~~ **Both closed 2026-08-09.** A customer's turn now runs
+  extraction and the qualifying loop on the same SSE connection, behind the
+  acknowledgement, and the model's question streams back into the chat she is
+  already in (`src/chat/qualifying-turn.ts`). What it cannot do yet is produce a
+  price — by design, under the pivot: the caterer is the first party to attach one.
 - **Phase 4** calendar sync (F4.9–F4.12) and the VIES lookup behind F4.5.
   `AvailabilityOutcome` is consumed by the engine but nothing populates it yet, so
   **Phase 4 is not complete** — the pricing and guardrail half is, the calendar half
@@ -178,6 +183,12 @@ Everything else in the inventory. Named explicitly rather than left to inference
     `--window-size=430` clip the page, but that is an artifact of the layout viewport
     not following the flag — the pre-existing quote page clips identically — not a
     CSS overflow bug.
+14. **`ANTHROPIC_API_KEY` is not set anywhere, and the qualifying loop is the first
+    thing that needs it.** Without it `callModel` returns `not_configured`, so every
+    turn escalates and the customer is told a person is taking over. That is the
+    designed failure and it was verified end to end against real rows — but it is not
+    a demo. Setting the key is one line in `.env.local`, and it is the only thing
+    between the wiring and the headline promise.
 
 ## Decisions taken during the build
 

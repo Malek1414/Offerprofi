@@ -508,4 +508,134 @@ begin
   raise notice 'PASS F3.3 — an out-of-range confidence is clamped, not rejected';
 end $$;
 
+-- ─── 0010: the qualifying loop's context read and its one state move ────────
+
+set role app_login;
+
+do $$
+declare
+  target uuid := current_setting('test.inquiry_id')::uuid;
+  other_agency uuid := 'aaaaaaaa-0000-0000-0000-000000000002';
+  ctx record;
+  resulting inquiry_state;
+begin
+  perform set_config('app.current_user_id', '', false);
+
+  select * into ctx
+    from public.conversation_context('aaaaaaaa-0000-0000-0000-000000000001', target, 10);
+
+  if ctx.brief_json -> 'guestCount' ->> 'value' <> '95' then
+    raise exception 'Phase B: conversation_context did not return the stored request';
+  end if;
+
+  -- I2 again, on the way out. The two halves came back in two columns, and the
+  -- realistic way this breaks is a read that helpfully merges them.
+  if ctx.brief_json::text like '%Sarah%' then
+    raise exception 'I2: contact data came back inside brief_json';
+  end if;
+  if ctx.contact_json ->> 'name' is null then
+    raise exception 'I2: contact_json came back empty';
+  end if;
+  raise notice 'PASS I2 — the context read keeps request and contact apart';
+
+  if jsonb_array_length(ctx.messages) <> 2 then
+    raise exception 'Phase B: expected 2 inbound messages, got %',
+      jsonb_array_length(ctx.messages);
+  end if;
+  if ctx.messages -> 0 ->> 'text' <> 'Wir heiraten im Juni.' then
+    raise exception 'Phase B: the transcript came back newest-first';
+  end if;
+  raise notice 'PASS Phase B — the transcript tail comes back oldest first';
+
+  -- A definer function runs as its owner. Without this check it is a cross-tenant
+  -- read primitive, and the thing it reads is a customer's whole enquiry.
+  begin
+    perform * from public.conversation_context(other_agency, target, 10);
+    raise exception 'F0.4: conversation_context served another tenant''s inquiry';
+  exception when others then
+    if sqlerrm like '%does not belong to agency%' then
+      raise notice 'PASS F0.4 — conversation_context refuses a mismatched pair';
+    else
+      raise;
+    end if;
+  end;
+
+  begin
+    perform public.record_agent_progress(other_agency, target, 'qualifying');
+    raise exception 'F0.4: record_agent_progress moved another tenant''s inquiry';
+  exception when others then
+    if sqlerrm like '%does not belong to agency%' then
+      raise notice 'PASS F0.4 — record_agent_progress refuses a mismatched pair';
+    else
+      raise;
+    end if;
+  end;
+
+  -- INVARIANT 1 at the storage layer. There is no third outcome, and the attempt to
+  -- express one fails loudly rather than being ignored.
+  begin
+    perform public.record_agent_progress(
+      'aaaaaaaa-0000-0000-0000-000000000001', target, 'declined');
+    raise exception 'I1: the agent was allowed to record an outcome other than the two';
+  exception when others then
+    if sqlerrm like '%Invariant 1%' then
+      raise notice 'PASS I1 — the agent has exactly two outcomes, and no third is expressible';
+    else
+      raise;
+    end if;
+  end;
+
+  -- new → acknowledged → extracting → qualifying, one legal edge at a time.
+  resulting := public.record_agent_progress(
+    'aaaaaaaa-0000-0000-0000-000000000001', target, 'qualifying');
+  if resulting <> 'qualifying' then
+    raise exception 'Phase B: expected qualifying, got %', resulting;
+  end if;
+  raise notice 'PASS Phase B — the agent walks an inquiry to qualifying';
+
+  resulting := public.record_agent_progress(
+    'aaaaaaaa-0000-0000-0000-000000000001', target, 'escalated', 'qualify_timeout');
+  if resulting <> 'escalated' then
+    raise exception 'I1: escalation did not take, got %', resulting;
+  end if;
+
+  -- And it stays escalated. Handing a thread back to the agent is a human's call;
+  -- an agent that could take it back would undo Invariant 5 one turn later.
+  resulting := public.record_agent_progress(
+    'aaaaaaaa-0000-0000-0000-000000000001', target, 'qualifying');
+  if resulting <> 'escalated' then
+    raise exception 'I5: the agent pulled an escalated inquiry back to itself';
+  end if;
+  raise notice 'PASS I5 — an escalated thread stays with the human';
+end $$;
+
+reset role;
+
+do $$
+declare
+  target uuid := current_setting('test.inquiry_id')::uuid;
+  paused boolean;
+  reason text;
+  transitions int;
+begin
+  select i.automation_paused, i.escalation_reason into paused, reason
+    from inquiries i where i.id = target;
+
+  if not paused then
+    raise exception 'I5: escalation left automation running';
+  end if;
+  if reason is distinct from 'qualify_timeout' then
+    raise exception 'Phase B: the escalation reason was not recorded, got %', reason;
+  end if;
+  raise notice 'PASS I5 — escalation pauses the agent and records why';
+
+  -- X4: every edge is auditable. new→acknowledged→extracting→qualifying→escalated.
+  select count(*) into transitions from audit_log
+   where entity_id = target and action = 'inquiry.state_changed';
+  if transitions <> 4 then
+    raise exception 'X4: expected 4 audited transitions, found %', transitions;
+  end if;
+  raise notice 'PASS X4 — every state edge the agent took is in the audit log';
+end $$;
+
 select 'ALL DATABASE ASSERTIONS PASSED' as result;

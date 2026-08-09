@@ -6,13 +6,15 @@
  * which carries the AI disclosure, the privacy notice and the non-binding framing —
  * is unit-tested rather than inspected by eye in a browser.
  *
- * **Phase 1 scope.** There is no model call here yet. Everything on this path is
- * deterministic text assembled from data we already hold, which is exactly what the
- * sub-10s acknowledgement requires (F1.9). The qualifying loop that asks about guest
- * counts and dates is Phase 3, and it will slot in after the ack rather than in
- * front of it — the ack must never come to depend on a model round-trip.
+ * **Everything in this file is deterministic, and that is the point.** The
+ * acknowledgement, the disclosure, the privacy line and the handoff are assembled
+ * from data we already hold, so they cost nothing and cannot fail — which is what
+ * the sub-10s acknowledgement requires (F1.9). The model-written turns come from
+ * `qualifying-turn.ts` and arrive on the same stream *behind* these, never in
+ * front of them.
  */
 
+import type { RequiredRequestField } from '../domain/catering-request'
 import type { Formality, Language } from '../domain/event-brief'
 import type { AckPlan } from './ack'
 import type { TriageResult } from './abuse'
@@ -29,6 +31,14 @@ export type AgentTurnKind =
   | 'throttle_notice'
   /** F1.14 / I5 — confirmation that a person has been brought in. */
   | 'paused'
+  /** Phase B — the qualifying question the model wrote. */
+  | 'question'
+  /** Phase B — what we understood, for her to check before it goes to the caterer. */
+  | 'summary'
+  /** Phase B — the deterministic line under the summary. Never mentions money. */
+  | 'summary_prompt'
+  /** Phase B / I5 — the agent could not continue, so a person is coming. Not a refusal. */
+  | 'handoff'
 
 export interface AgentTurn {
   kind: AgentTurnKind
@@ -111,6 +121,106 @@ export function humanRequestedNotice(
     `I've let ${ownerName} know — she'll get back to you personally. ` +
     `I won't post anything automatically here in the meantime.`
   )
+}
+
+/**
+ * What the customer sees when the agent cannot continue (Phase B, I1 + I5).
+ *
+ * Every failure inside a qualifying turn lands here: a model timeout, an
+ * unparseable response, a suspected injection, a write that would not go through.
+ * They deliberately share one line, because the customer's situation is identical
+ * in all of them — a person is taking over — and because a message that varied by
+ * failure kind would eventually leak one that sounded like a rejection.
+ *
+ * It says nothing is wrong with her enquiry, names no fault, and promises the one
+ * thing that is unconditionally true: what she wrote arrived, and a human has it.
+ * No owner pronoun, because we do not know one.
+ */
+export function handoffNotice(
+  language: Language,
+  formality: Exclude<Formality, 'unknown'>,
+  ownerName: string,
+): string {
+  if (language === 'de') {
+    return formality === 'du'
+      ? `Hier gebe ich lieber an einen Menschen ab: ${ownerName} hat deine Anfrage und ` +
+          `meldet sich persönlich bei dir. Alles, was du geschrieben hast, ist angekommen.`
+      : `Hier gebe ich lieber an einen Menschen ab: ${ownerName} hat Ihre Anfrage und ` +
+          `meldet sich persönlich bei Ihnen. Alles, was Sie geschrieben haben, ist angekommen.`
+  }
+  return (
+    `I'd rather hand this to a person: ${ownerName} has your enquiry and will get back ` +
+    `to you personally. Everything you've written has come through.`
+  )
+}
+
+/**
+ * The line under the summary, once the request is complete enough to send.
+ *
+ * Deterministic rather than model-written, because it carries two commitments the
+ * product cannot let a model phrase freshly each time: that she can still correct
+ * anything, and that the price comes from the caterer himself. The second is the
+ * customer-facing half of N1 — the assistant never prices, and it says so before
+ * she has to ask.
+ */
+export function readyToSendLine(
+  language: Language,
+  formality: Exclude<Formality, 'unknown'>,
+  ownerName: string,
+): string {
+  if (language === 'de') {
+    return formality === 'du'
+      ? `Passt das so? Sag mir gern, wenn etwas fehlt oder anders ist. ` +
+          `Das Angebot mit den Preisen macht ${ownerName} selbst — das kommt als Nächstes.`
+      : `Passt das so? Sagen Sie mir gern, wenn etwas fehlt oder anders ist. ` +
+          `Das Angebot mit den Preisen macht ${ownerName} selbst — das kommt als Nächstes.`
+  }
+  return (
+    `Does that look right? Tell me if anything is missing or different. ` +
+    `${ownerName} puts the offer and the prices together himself — that comes next.`
+  )
+}
+
+/**
+ * Our own wording for a missing field, used when the model returned no usable
+ * question.
+ *
+ * A rare path, and worth having: the alternative to a plain question here is an
+ * empty bubble or an escalation over a formatting slip. The fields are known in
+ * code — the model was only ever adding the phrasing.
+ */
+export function missingFieldQuestion(
+  field: RequiredRequestField,
+  language: Language,
+  formality: Exclude<Formality, 'unknown'>,
+): string {
+  const du = formality === 'du'
+  if (language === 'de') {
+    switch (field) {
+      case 'eventDate':
+        return 'Wann soll das Ganze stattfinden?'
+      case 'headcount':
+        return du ? 'Für wie viele Personen planst du?' : 'Für wie viele Personen planen Sie?'
+      case 'venue':
+        return 'Und wo findet es statt — Ort oder Location?'
+      case 'serviceStyle':
+        return 'Soll es ein Buffet werden, am Tisch serviert, oder eher Fingerfood?'
+      case 'mealType':
+        return 'Geht es um ein Abendessen, ein Mittagessen oder etwas Kleineres?'
+    }
+  }
+  switch (field) {
+    case 'eventDate':
+      return 'When is it taking place?'
+    case 'headcount':
+      return 'Roughly how many people are you planning for?'
+    case 'venue':
+      return 'And where is it — the town or the venue?'
+    case 'serviceStyle':
+      return 'Would you like a buffet, plated service, or something more like finger food?'
+    case 'mealType':
+      return 'Is this dinner, lunch, or something lighter?'
+  }
 }
 
 /** Static UI strings for the chat surface, in both languages at real German length. */

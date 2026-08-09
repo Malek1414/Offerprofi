@@ -8,18 +8,25 @@
  *
  * The ordering enforced here is the one the product's core promise rests on
  * (F1.9): **acknowledge, then work.** The acknowledgement is deterministic text
- * that needs no model and no database read, so it goes out first and extraction is
- * scheduled behind it. Anything added to this handler that must complete before the
- * first chunk is written is a regression in the metric that wins deals.
+ * that needs no model and no database read, so it goes out first; the write, the
+ * extraction and the qualifying question all happen behind it, on the same
+ * connection, while she is still reading. Anything added to this handler that must
+ * complete before the first chunk is written is a regression in the metric that
+ * wins deals.
+ *
+ * Everything the model says arrives through `runQualifyingTurn`, which cannot fail
+ * in a way the customer sees as a refusal — the worst case it can produce is "a
+ * person is taking over" (I1, I5).
  */
 
 import { type NextRequest } from 'next/server'
 
 import { acknowledgeInquiry } from '../../../../chat/ack'
 import { triageInbound } from '../../../../chat/abuse'
-import { composeAgentTurns, streamChunks } from '../../../../chat/conversation'
+import { type AgentTurn, composeAgentTurns, streamChunks } from '../../../../chat/conversation'
 import { RateLimiter } from '../../../../chat/rate-limit'
 import { recordChatTurnDetached } from '../../../../chat/persistence'
+import { runQualifyingTurn } from '../../../../chat/qualifying-turn'
 import {
   SESSION_COOKIE_NAME,
   SESSION_TTL_MS,
@@ -170,10 +177,20 @@ export async function POST(
     automationPaused: requestHuman,
   })
 
+  // Whether a model may answer at all on this turn. Two cases where it may not,
+  // and neither of them is a refusal: the customer has asked for a person (I5), or
+  // triage has routed the turn to the owner's tray (F1.11), which is where a
+  // suspected bot belongs — and paying for two model calls on its behalf is not.
+  const agentMayAnswer = !requestHuman && triage.handling !== 'owner_tray'
+
   // F1.5 / F1.8 / F1.1 — written down *behind* the acknowledgement, never in front
   // of it. `streamTurns` calls this once the first chunk is on the wire, so a slow
   // database cannot move the metric F1.9 exists to protect. The token hash is the
   // session identity; the raw token stays in the cookie and is never stored.
+  //
+  // The qualifying loop chains off this one promise rather than starting its own:
+  // extraction needs the inquiry id, and a second write would give the same thread
+  // a second inquiry.
   const persist = () =>
     recordChatTurnDetached({
       agencyId: agency.id,
@@ -201,7 +218,44 @@ export async function POST(
         : {}),
     })
 
-  const stream = streamTurns(turns, persist)
+  /**
+   * The model's half of the turn.
+   *
+   * Started once the acknowledgement is on the wire and awaited only after every
+   * deterministic turn has streamed, so the two model calls inside it sit behind a
+   * typing indicator rather than in front of the customer's first words.
+   *
+   * It never throws: `runQualifyingTurn` answers every failure with a handoff turn,
+   * and the guard here covers the one thing it cannot — a fault in the persistence
+   * promise itself. An empty array simply ends the stream after the ack, which is
+   * the Phase 1 behaviour and a fine floor to fall back to.
+   */
+  const followUp = async (persisted: ReturnType<typeof persist>): Promise<AgentTurn[]> => {
+    if (!agentMayAnswer) return []
+    try {
+      const written = await persisted
+      return await runQualifyingTurn({
+        agencyId: agency.id,
+        agencyName: agency.name,
+        ownerName: agency.ownerName,
+        inquiryId: written?.inquiryId ?? null,
+        message: { id: event.idempotencyKey, text },
+        language: voice.language,
+        formality: voice.formality,
+      })
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          event: 'qualifying_turn_failed',
+          agencyId: agency.id,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      )
+      return []
+    }
+  }
+
+  const stream = streamTurns(turns, persist, followUp)
 
   const headers = new Headers({
     'Content-Type': 'text/event-stream; charset=utf-8',
@@ -232,10 +286,17 @@ export async function POST(
  * screen. That is the ordering F1.9 requires — anything slow belongs behind it, and
  * putting the hook here rather than at the call site means it cannot accidentally be
  * awaited before the stream is returned.
+ *
+ * `followUp` receives that same promise and produces the model-written turns, which
+ * are streamed after the deterministic ones on the same connection. It is *started*
+ * at the first chunk and *awaited* at the end, so the model works while the
+ * acknowledgement is still being typed out rather than after it — and if it returns
+ * nothing, the stream simply closes where Phase 1 closed it.
  */
-function streamTurns(
+function streamTurns<T>(
   turns: { kind: string; text: string }[],
-  afterFirstChunk?: () => void,
+  afterFirstChunk: () => Promise<T>,
+  followUp?: (_persisted: Promise<T>) => Promise<{ kind: string; text: string }[]>,
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder()
   return new ReadableStream({
@@ -243,27 +304,51 @@ function streamTurns(
       const send = (event: string, data: unknown) => {
         controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`))
       }
-      let started = false
+      let pending: Promise<{ kind: string; text: string }[]> | null = null
       try {
-        for (const turn of turns) {
-          send('turn', { kind: turn.kind })
-          for (const chunk of streamChunks(turn.text)) {
-            send('chunk', { text: chunk })
-            if (!started) {
-              started = true
-              afterFirstChunk?.()
+        let started = false
+        const stream = async (batch: { kind: string; text: string }[]) => {
+          for (const turn of batch) {
+            send('turn', { kind: turn.kind })
+            for (const chunk of streamChunks(turn.text)) {
+              send('chunk', { text: chunk })
+              if (!started) {
+                started = true
+                const persisted = afterFirstChunk()
+                // Kicked off here and collected below. Not awaited: the whole point
+                // of the ordering is that the customer reads while this runs.
+                pending = followUp ? followUp(persisted) : null
+              }
+              // A short pause per chunk so the text arrives at a readable pace rather
+              // than in one frame.
+              await sleep(12)
             }
-            // A short pause per chunk so the text arrives at a readable pace rather
-            // than in one frame. Cosmetic now; when Phase 3 puts a model behind this
-            // the cadence comes from the model and this goes away.
-            await sleep(12)
+            send('turn_end', { kind: turn.kind })
           }
-          send('turn_end', { kind: turn.kind })
+        }
+
+        await stream(turns)
+        // Nothing deterministic had any text to send — so the hook has not fired,
+        // and the customer's message would otherwise never be written down.
+        if (!started) {
+          started = true
+          const persisted = afterFirstChunk()
+          pending = followUp ? followUp(persisted) : null
+        }
+        if (pending) {
+          // The gap between the ack and the answer is where the client shows its
+          // typing indicator, and it is the only place in the request where a model
+          // round trip is allowed to be visible.
+          send('working', {})
+          await stream(await pending)
         }
         send('done', {})
       } catch (error) {
         send('error', { message: error instanceof Error ? error.message : 'stream failed' })
       } finally {
+        // A follow-up still running when the stream is torn down would otherwise be
+        // an unhandled rejection in the server log for a request nobody is reading.
+        void pending?.catch(() => undefined)
         controller.close()
       }
     },
