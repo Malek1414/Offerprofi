@@ -1,0 +1,254 @@
+/**
+ * The inbox (Phase F).
+ *
+ * Built for a phone held in one hand, because that is where the caterer reads it.
+ * The list is the screen; the detail is a second screen, not a pane — a split
+ * layout on a 390px viewport is two cramped columns and nobody's inbox.
+ *
+ * Our own chrome stays achromatic; --brand* comes from the agency's profile, the
+ * same arrangement the chat and quote surfaces use.
+ */
+
+.page {
+  min-height: 100dvh;
+  padding: 1.5rem 1rem 4rem;
+  background: var(--paper);
+}
+
+.shell {
+  max-width: 46rem;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.eyebrow {
+  display: block;
+  font-size: var(--step--1);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+
+.title {
+  margin: 0.15rem 0 0;
+  font-family: var(--display);
+  font-size: var(--step-2);
+}
+
+.count {
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+}
+
+/* ── The list ─────────────────────────────────────────────────────────────── */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: block;
+  padding: 0.85rem 1rem;
+  color: inherit;
+  text-decoration: none;
+  background: var(--paper-sunk);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.row:hover {
+  border-color: var(--brand-line-l);
+}
+
+/* Waiting on him. A left edge rather than a colour wash, so the list still reads
+   as a list and the urgent ones are found by scanning down one line. */
+.rowWaiting {
+  border-left: 3px solid var(--brand);
+}
+
+.rowTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.who {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.when {
+  flex-shrink: 0;
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+  white-space: nowrap;
+}
+
+.summary {
+  margin: 0.2rem 0 0;
+  color: var(--ink-soft);
+  font-size: var(--step--1);
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.badge {
+  padding: 0.1rem 0.45rem;
+  font-size: 0.6875rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 0.25rem;
+}
+
+.badgeWaiting {
+  color: var(--brand-ink-l);
+  background: var(--brand-wash-l);
+  border-color: var(--brand-line-l);
+}
+
+.badgePaused {
+  color: var(--warn-ink);
+  background: var(--warn-wash);
+  border-color: var(--warn-ink);
+}
+
+/* ── Empty ────────────────────────────────────────────────────────────────── */
+
+.empty {
+  padding: 2.5rem 1.25rem;
+  text-align: center;
+  background: var(--paper-sunk);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.emptyTitle {
+  margin: 0 0 0.4rem;
+  font-family: var(--display);
+  font-size: var(--step-1);
+}
+
+.emptyBody {
+  margin: 0 auto;
+  max-width: 26rem;
+  color: var(--ink-soft);
+}
+
+.link {
+  display: inline-block;
+  margin-top: 0.9rem;
+  color: var(--brand-ink-l);
+}
+
+/* ── Detail ───────────────────────────────────────────────────────────────── */
+
+.back {
+  display: inline-block;
+  margin-bottom: 0.75rem;
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+  text-decoration: none;
+}
+
+.panel {
+  padding: 1rem;
+  margin-bottom: 1rem;
+  background: var(--paper-sunk);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.panelTitle {
+  margin: 0 0 0.6rem;
+  font-size: var(--step--1);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+
+.rows {
+  margin: 0;
+}
+
+.detailRow {
+  display: grid;
+  grid-template-columns: 9rem 1fr;
+  gap: 0.6rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.detailRow:last-child {
+  border-bottom: 0;
+}
+
+.detailRow dt {
+  color: var(--ink-mute);
+  font-size: var(--step--1);
+}
+
+.detailRow dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.transcript {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.msg {
+  max-width: 85%;
+  padding: 0.5rem 0.75rem;
+  font-size: var(--step--1);
+  border-radius: var(--radius);
+  overflow-wrap: anywhere;
+}
+
+.msgIn {
+  align-self: flex-start;
+  background: var(--paper);
+  border: 1px solid var(--line);
+}
+
+.msgOut {
+  align-self: flex-end;
+  background: var(--brand-wash-l);
+  border: 1px solid var(--brand-line-l);
+}
+
+.note {
+  margin: 0.5rem 0 0;
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+}
+
+@media (max-width: 30rem) {
+  .detailRow {
+    grid-template-columns: 1fr;
+    gap: 0.1rem;
+  }
+}
