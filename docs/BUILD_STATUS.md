@@ -6,10 +6,15 @@ Updated 2026-08-09.
 ## Verified working
 
 `npm run verify` — typecheck, lint and **368 tests**, all green. `npm run test:db` applies
-all five migrations to a scratch PostgreSQL and runs **two assertion suites** against it.
+all six migrations to a scratch PostgreSQL and runs **two assertion suites** against it.
 `npm run build` produces a clean production build. `npm run dev` then `/q/demo` renders a
-real quote priced by the real engine, `/a/demo` runs the hosted chat against the real
-endpoint, and `/signup` and `/login` render the owner-side auth surfaces.
+real quote priced by the real engine, `/a/{slug}` runs the hosted chat for **any real
+tenant** against the real endpoint, and `/signup` and `/login` render the owner-side auth
+surfaces.
+
+Note that `/a/demo` **404s whenever `DATABASE_URL` is set**, and always did — the demo
+tenant is the no-database fallback, and with a database configured that branch is dead
+and `demo` is simply a slug no agency owns. Use a slug from `agency_slugs` instead.
 
 Phase 1 was exercised end-to-end against the running dev server, not only in unit tests:
 a first turn streams the disclosure before the ack; a second turn on the same cookie does
@@ -23,7 +28,7 @@ request path, not just in a test).
 | F1.1 envelope | **Done** | Type + zod schema + idempotency. 11 tests |
 | F1.2 adapter registry (X1) | **Done** | Pure `payload → InboundEvent`; contract violations throw. 16 tests |
 | F1.3 hosted_chat adapter | **Done** | Client clock distrusted; tenant never from payload |
-| F1.4 `/a/{slug}` | **Done** | Slug resolved server-side; neutral 404, no tenant enumeration |
+| F1.4 `/a/{slug}` | **Done** | Resolved against the database via `resolve_public_agency`, a SECURITY DEFINER function returning a fixed stranger-visible column list. Neutral 404; suspended and nonexistent are indistinguishable. 3 DB assertions, including that `agency_slugs` is **not** directly readable without an identity |
 | F1.5 sessions | **Partial** | Token mint/hash/sign/verify done and tested. No `chat_sessions` row — needs the database |
 | F1.6 rate limiting | **Partial** | Throttle-never-refuse, tunable, logged. Process-local map; needs a shared store for >1 instance |
 | F1.7 SSE streaming | **Done** | Frame-safe client parser; typing indicator; no blank wait state |

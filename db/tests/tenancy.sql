@@ -206,4 +206,61 @@ begin
   raise notice 'PASS F5.1 — numbering is sequential and per-tenant (%, %, %)', a1, a2, b1;
 end $$;
 
+-- ─── F1.4: the public slug surface leaks nothing and enumerates nothing ─────
+--
+-- Run with **no identity at all** — no `app.current_user_id` — because that is the
+-- real condition on `/a/{slug}`. A customer is not a user of the platform.
+
+insert into agency_slugs (agency_id, slug, alias_email) values
+  ('aaaaaaaa-0000-0000-0000-000000000001', 'lisa-test', 'anfragen-lisa-test@in.example.invalid'),
+  ('bbbbbbbb-0000-0000-0000-000000000002', 'markus-test', 'anfragen-markus-test@in.example.invalid');
+
+update agencies set suspended_at = now()
+ where id = 'bbbbbbbb-0000-0000-0000-000000000002';
+
+set role app_login;
+
+do $$
+declare
+  direct int;
+  resolved int;
+  resolved_name text;
+begin
+  -- No identity: this is the real condition on `/a/{slug}`, and an earlier block in
+  -- this file left one set.
+  perform set_config('app.current_user_id', '', false);
+
+  -- The tenant table itself stays shut to an anonymous caller. If this ever returns
+  -- a row, the SECURITY DEFINER function has stopped being the only public path and
+  -- every column on agency_slugs is readable by anyone with the URL.
+  select count(*) into direct from agency_slugs;
+  if direct <> 0 then
+    raise exception 'F1.4: agency_slugs is directly readable with no identity (% rows)', direct;
+  end if;
+  raise notice 'PASS F1.4 — agency_slugs is not readable without an identity';
+
+  select count(*), max(name) into resolved, resolved_name
+    from public.resolve_public_agency('lisa-test');
+  if resolved <> 1 then
+    raise exception 'F1.4: an active slug did not resolve anonymously (% rows)', resolved;
+  end if;
+  raise notice 'PASS F1.4 — an active slug resolves with no identity (%)', resolved_name;
+
+  -- Suspended and nonexistent must be the same answer. Distinguishing them would
+  -- let a stranger enumerate which agencies exist on the platform, and the slug is
+  -- guessable by design — it goes in an Instagram bio.
+  select count(*) into resolved from public.resolve_public_agency('markus-test');
+  if resolved <> 0 then
+    raise exception 'F1.4: a suspended agency is still publicly resolvable';
+  end if;
+
+  select count(*) into resolved from public.resolve_public_agency('no-such-agency');
+  if resolved <> 0 then
+    raise exception 'F1.4: a nonexistent slug returned a row';
+  end if;
+  raise notice 'PASS F1.4 — suspended and nonexistent are indistinguishable';
+end $$;
+
+reset role;
+
 select 'ALL DATABASE ASSERTIONS PASSED' as result;
