@@ -17,8 +17,10 @@ import Link from 'next/link'
 import styles from './catalogue.module.css'
 import { CatalogueEditor, type EditorItem } from './catalogue-editor'
 import { requireUserId } from '../../../auth/current-user'
-import { listCatalogueItems } from '../../../onboarding/repository'
+import { listAllPriceRules, listCatalogueItems } from '../../../onboarding/repository'
+import { priceBandsToForm } from '../../../onboarding/price-band-form'
 import { REQUIRED_CONFIRMED_ITEMS } from '../../../onboarding/progress'
+import { catalogItemId } from '../../../domain/catalogue'
 
 export const metadata: Metadata = {
   title: 'Leistungen',
@@ -26,21 +28,44 @@ export const metadata: Metadata = {
 
 export default async function CataloguePage() {
   const userId = await requireUserId('/onboarding/catalogue')
-  const items = await listCatalogueItems(userId)
+  const [items, rules] = await Promise.all([listCatalogueItems(userId), listAllPriceRules(userId)])
+
+  // Grouped once rather than filtered per item, so the page stays linear in the size
+  // of the catalogue instead of quadratic.
+  const bandsByItem = new Map<string, typeof rules>()
+  for (const rule of rules) {
+    const existing = bandsByItem.get(rule.catalogItemId)
+    if (existing) existing.push(rule)
+    else bandsByItem.set(rule.catalogItemId, [rule])
+  }
 
   const initial: EditorItem[] = items
     .filter((item) => item.active)
-    .map((item) => ({
-      id: item.id,
-      name: item.name,
-      description: item.description,
-      unit: item.unit,
-      unitPrice: item.unitPrice,
-      floorPrice: item.floorPrice,
-      vatRate: item.vatRate,
-      quantityDriver: item.quantityDriver,
-      priceRuleCount: item.priceRuleCount,
-    }))
+    .map((item) => {
+      const priceBands = priceBandsToForm(
+        (bandsByItem.get(item.id) ?? []).map((rule) => ({
+          catalogItemId: catalogItemId(rule.catalogItemId),
+          minQty: rule.minQty,
+          maxQty: rule.maxQty,
+          unitPrice: rule.unitPrice,
+        })),
+      )
+
+      return {
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        unit: item.unit,
+        unitPrice: item.unitPrice,
+        floorPrice: item.floorPrice,
+        vatRate: item.vatRate,
+        quantityDriver: item.quantityDriver,
+        // From the rules actually loaded, not the item's cached count — if the two
+        // ever disagree the ladder on screen is the truth.
+        priceRuleCount: priceBands.length,
+        priceBands,
+      }
+    })
 
   const remaining = Math.max(0, REQUIRED_CONFIRMED_ITEMS - initial.length)
 

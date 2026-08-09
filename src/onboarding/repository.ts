@@ -271,6 +271,26 @@ export async function listPriceRules(userId: string, itemId: string): Promise<Pr
   })
 }
 
+/**
+ * Every band for the whole catalogue, in one query.
+ *
+ * The editor renders all items at once, so fetching per item would be a query per row
+ * inside a page render. RLS scopes this to the caller's agency exactly as the
+ * per-item version does — the `where` clause is the policy, not the argument.
+ */
+export async function listAllPriceRules(userId: string): Promise<PriceRuleRow[]> {
+  return withUser(userId, async (client) => {
+    const result = await client.query('select * from price_rules order by catalog_item_id, min_qty')
+    return result.rows.map((row) => ({
+      id: String(row.id),
+      catalogItemId: String(row.catalog_item_id),
+      minQty: Number(row.min_qty),
+      maxQty: row.max_qty === null ? null : Number(row.max_qty),
+      unitPrice: cents(Number(row.unit_price_cents)),
+    }))
+  })
+}
+
 export async function replacePriceRules(
   userId: string,
   agencyId: string,

@@ -29,6 +29,12 @@ import {
   QUANTITY_DRIVERS,
   type CatalogueProblem,
 } from '../../../onboarding/catalogue-form'
+import {
+  formatQuantity,
+  supportsPriceBands,
+  type PriceBandForm,
+  type PriceBandProblem,
+} from '../../../onboarding/price-band-form'
 import { formatCents, type Cents } from '../../../domain/money'
 import type { QuantityDriver } from '../../../domain/catalogue'
 
@@ -42,6 +48,7 @@ export interface EditorItem {
   vatRate: number
   quantityDriver: QuantityDriver
   priceRuleCount: number
+  priceBands: PriceBandForm[]
 }
 
 const MESSAGES: Record<string, string> = {
@@ -61,6 +68,20 @@ const MESSAGES: Record<string, string> = {
   'quantityDriver.invalid': 'Bitte wählen Sie, wonach Sie abrechnen.',
 }
 
+const BAND_MESSAGES: Record<string, string> = {
+  'fromQty.missing': 'Ab welcher Menge?',
+  'fromQty.invalid': 'Bitte eine ganze Zahl ab 1.',
+  'fromQty.duplicate': 'Diese Menge haben Sie schon angegeben.',
+  'unitPrice.missing': 'Bitte einen Preis angeben.',
+  'unitPrice.unparseable': 'Nicht als Betrag lesbar. Zum Beispiel: 12,50',
+  'unitPrice.zero': 'Ein Preis von 0 € ergibt kein Angebot.',
+  'unitPrice.too_large': 'Sieht nach einem Tippfehler aus.',
+  // The one message that exists because the engine would otherwise be silent: it
+  // clamps a sub-floor band up to the floor and prices correctly, so she would see a
+  // price she never set, on every quote, with nothing to explain it.
+  'unitPrice.below_floor': 'Liegt unter Ihrem Mindestpreis — der Assistent würde diesen nehmen.',
+}
+
 interface Props {
   initialItems: EditorItem[]
 }
@@ -76,6 +97,8 @@ export function CatalogueEditor({ initialItems }: Props) {
   const [vatRate, setVatRate] = useState('19')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [problems, setProblems] = useState<CatalogueProblem[]>([])
+  const [bands, setBands] = useState<PriceBandForm[]>([])
+  const [bandProblems, setBandProblems] = useState<PriceBandProblem[]>([])
   const [formError, setFormError] = useState<string | null>(null)
   const [saved, setSaved] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -85,10 +108,20 @@ export function CatalogueEditor({ initialItems }: Props) {
     return problem && MESSAGES[`${problem.field}.${problem.code}`]
   }
 
+  const bandErrorFor = (index: number, field: string): string | undefined => {
+    const problem = bandProblems.find((p) => p.index === index && p.field === field)
+    return problem && BAND_MESSAGES[`${problem.field}.${problem.code}`]
+  }
+
+  const thresholdUnit = formatQuantity(driver)
+  const bandsApply = supportsPriceBands(driver)
+
   function reset() {
     setFields(EMPTY)
     setEditingId(null)
     setProblems([])
+    setBands([])
+    setBandProblems([])
     setFormError(null)
   }
 
@@ -103,6 +136,8 @@ export function CatalogueEditor({ initialItems }: Props) {
     setDriver(item.quantityDriver)
     setUnit(item.unit)
     setVatRate(String(item.vatRate))
+    setBands(item.priceBands)
+    setBandProblems([])
     setProblems([])
     setSaved(null)
   }
@@ -111,6 +146,7 @@ export function CatalogueEditor({ initialItems }: Props) {
     event.preventDefault()
     setBusy(true)
     setProblems([])
+    setBandProblems([])
     setFormError(null)
     setSaved(null)
 
@@ -119,6 +155,8 @@ export function CatalogueEditor({ initialItems }: Props) {
       unit,
       vatRate,
       quantityDriver: driver,
+      // Sent even when empty: an empty ladder is how the last band is removed.
+      priceBands: bandsApply ? bands : [],
       ...(editingId ? { id: editingId } : {}),
     }
 
@@ -131,20 +169,25 @@ export function CatalogueEditor({ initialItems }: Props) {
       const result = await response.json()
 
       if (result.status === 'created' || result.status === 'updated') {
-        const item: EditorItem = normalise(result.item)
+        // The response carries the item, not its ladder — the ladder that was just
+        // saved is the one in hand, already normalised by having been accepted.
+        const item: EditorItem = normalise(result.item, bandsApply ? bands : [])
         setItems((current) =>
           editingId ? current.map((i) => (i.id === item.id ? item : i)) : [...current, item],
         )
         setSaved(item.name)
         // Name, description and prices clear; driver, unit and VAT stay, because an
         // agency's services cluster and resetting them costs twelve interactions
-        // across five entries.
+        // across five entries. The ladder clears with the prices — it belongs to the
+        // item that was just saved, not to the next one.
         setFields(EMPTY)
+        setBands([])
         setEditingId(null)
         return
       }
       if (result.status === 'invalid') {
         setProblems(result.problems ?? [])
+        setBandProblems(result.bandProblems ?? [])
         return
       }
       if (result.status === 'unauthenticated') {
@@ -157,6 +200,10 @@ export function CatalogueEditor({ initialItems }: Props) {
     } finally {
       setBusy(false)
     }
+  }
+
+  function updateBand(index: number, patch: Partial<PriceBandForm>) {
+    setBands(bands.map((band, i) => (i === index ? { ...band, ...patch } : band)))
   }
 
   async function retire(item: EditorItem) {
@@ -194,6 +241,16 @@ export function CatalogueEditor({ initialItems }: Props) {
                 <span className={styles.itemFloor}>
                   Mindestpreis {formatCents(item.floorPrice as Cents)}
                 </span>
+                {item.priceRuleCount > 0 && (
+                  <>
+                    <span>·</span>
+                    <span className={styles.itemBands}>
+                      {item.priceRuleCount === 1
+                        ? '1 Staffel'
+                        : `${item.priceRuleCount} Staffeln`}
+                    </span>
+                  </>
+                )}
                 <span>·</span>
                 <button type="button" className={styles.secondary} onClick={() => startEditing(item)}>
                   Bearbeiten
@@ -345,6 +402,76 @@ export function CatalogueEditor({ initialItems }: Props) {
           </label>
         </div>
 
+        {/* Staffelpreise (F4.3). Hidden entirely for a Pauschale, which has no
+            quantity to band on — an empty control the owner cannot use is worse
+            than no control. */}
+        {bandsApply && (
+          <fieldset className={styles.bands}>
+            <legend className={styles.label}>
+              Staffelpreise
+              <span className={styles.hint}>
+                Optional. Wird ab einer bestimmten Menge günstiger, tragen Sie das hier
+                ein — sonst gilt Ihr Preis von oben für jede Menge.
+              </span>
+            </legend>
+
+            {bands.length > 0 && (
+              <ol className={styles.bandList}>
+                {bands.map((band, index) => (
+                  <li key={index} className={styles.bandRow}>
+                    <span className={styles.bandFrom}>ab</span>
+                    <span className={styles.bandQty}>
+                      <input
+                        className={styles.input}
+                        value={band.fromQty}
+                        onChange={(e) => updateBand(index, { fromQty: e.target.value })}
+                        inputMode="numeric"
+                        placeholder="50"
+                        aria-label={`Staffel ${index + 1} — ab wie vielen ${thresholdUnit}`}
+                        aria-invalid={Boolean(bandErrorFor(index, 'fromQty'))}
+                      />
+                    </span>
+                    <span className={styles.bandUnit}>{thresholdUnit}</span>
+                    <span className={styles.bandQty}>
+                      <input
+                        className={`${styles.input} ${styles.money}`}
+                        value={band.unitPrice}
+                        onChange={(e) => updateBand(index, { unitPrice: e.target.value })}
+                        inputMode="decimal"
+                        placeholder="12,50"
+                        aria-label={`Staffel ${index + 1} — Preis`}
+                        aria-invalid={Boolean(bandErrorFor(index, 'unitPrice'))}
+                      />
+                    </span>
+                    <span className={styles.bandUnit}>€</span>
+                    <button
+                      type="button"
+                      className={styles.secondary}
+                      onClick={() => setBands(bands.filter((_, i) => i !== index))}
+                      aria-label={`Staffel ${index + 1} entfernen`}
+                    >
+                      Entfernen
+                    </button>
+                    {(bandErrorFor(index, 'fromQty') || bandErrorFor(index, 'unitPrice')) && (
+                      <span className={styles.bandError}>
+                        {bandErrorFor(index, 'fromQty') ?? bandErrorFor(index, 'unitPrice')}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            )}
+
+            <button
+              type="button"
+              className={styles.secondary}
+              onClick={() => setBands([...bands, { fromQty: '', unitPrice: '' }])}
+            >
+              Staffel hinzufügen
+            </button>
+          </fieldset>
+        )}
+
         <div className={styles.actions}>
           <button className={styles.submit} type="submit" disabled={busy}>
             {editingId ? 'Änderungen speichern' : 'Leistung speichern'}
@@ -360,7 +487,7 @@ export function CatalogueEditor({ initialItems }: Props) {
   )
 }
 
-function normalise(raw: Record<string, unknown>): EditorItem {
+function normalise(raw: Record<string, unknown>, priceBands: PriceBandForm[]): EditorItem {
   return {
     id: String(raw.id),
     name: String(raw.name),
@@ -370,6 +497,7 @@ function normalise(raw: Record<string, unknown>): EditorItem {
     floorPrice: Number(raw.floorPrice),
     vatRate: Number(raw.vatRate),
     quantityDriver: String(raw.quantityDriver) as QuantityDriver,
-    priceRuleCount: Number(raw.priceRuleCount ?? 0),
+    priceRuleCount: priceBands.length,
+    priceBands,
   }
 }

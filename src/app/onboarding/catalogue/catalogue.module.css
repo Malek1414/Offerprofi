@@ -294,3 +294,63 @@
   font-weight: 600;
   color: var(--ink);
 }
+
+/* Staffelpreise (F4.3). A ladder of "ab {n} {unit} — {price} €" rows. */
+
+.bands {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1rem 1rem 0.75rem;
+  margin: 0 0 1.1rem;
+  min-width: 0;
+}
+
+.bandList {
+  list-style: none;
+  margin: 0.9rem 0 0.6rem;
+  padding: 0;
+}
+
+/*
+ * The row reads as a sentence — "ab [ 50 ] Personen [ 12,50 ] €" — so the number
+ * fields are sized to their content rather than stretched to the column. A full-width
+ * input for a two-digit guest count invites the owner to expect something longer.
+ */
+.bandRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.55rem;
+}
+
+.bandFrom,
+.bandUnit {
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+  white-space: nowrap;
+}
+
+.bandQty {
+  display: inline-block;
+  width: 6.5rem;
+  flex: 0 0 auto;
+}
+
+.bandQty .input {
+  margin: 0;
+}
+
+/*
+ * Forced onto its own line so the message sits under the row it belongs to rather
+ * than pushing the fields sideways as it appears.
+ */
+.bandError {
+  flex-basis: 100%;
+  font-size: var(--step--1);
+  color: var(--warn-ink);
+}
+
+.itemBands {
+  font-variant-numeric: tabular-nums;
+}

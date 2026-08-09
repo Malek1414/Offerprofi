@@ -5,7 +5,7 @@ Updated 2026-08-09.
 
 ## Verified working
 
-`npm run verify` — typecheck, lint and **349 tests**, all green. `npm run test:db` applies
+`npm run verify` — typecheck, lint and **368 tests**, all green. `npm run test:db` applies
 all five migrations to a scratch PostgreSQL and runs **two assertion suites** against it.
 `npm run build` produces a clean production build. `npm run dev` then `/q/demo` renders a
 real quote priced by the real engine, `/a/demo` runs the hosted chat against the real
@@ -61,7 +61,7 @@ request path, not just in a test).
 | F3.6 confidence policy | **Done** | `evaluateConfidence()` implements the §4.10 table |
 | F4.1 `PricingInput` + pure function | **Done** | No I/O, no model call, no personal field. Purity asserted by test |
 | F4.2 calculation order + trace | **Done** | Spec §7.3 order 1–9; every figure reconstructible from the trace |
-| F4.3 tiered `price_rules` | **Done** | Band boundaries tested at the edges |
+| F4.3 tiered `price_rules` | **Done** | Band boundaries tested at the edges. Owner-editable on S17: one threshold per band, upper bounds derived, so a hand-built ladder cannot gap or overlap. 19 tests |
 | F4.4 modifiers | **Done** | Ordered, each recorded individually in the trace |
 | F4.5 VAT per line | **Partial** | 19% / 7% / 0% split works and is tested. `reverseCharge` is an **input flag** — the VIES lookup that should set it is not built |
 | F4.6 rounding | **Done** | Half-up 2dp at line level, totals summed from rounded lines |
@@ -99,9 +99,12 @@ Everything else in the inventory. Named explicitly rather than left to inference
   *UI* (S13, the hardest screen in the product) does not. **Everything still
   outstanding here needs either object storage (F0.5) or a model call (F0.11)** —
   F2.13, the guardrail form, was the last piece that needed neither, and it is done.
-- **Staffelpreise have no UI.** `price_rules` is modelled, migrated and read by the
-  engine, and `replacePriceRules` is written — but screen S17 exposes only the single
-  unit price. An owner who prices per head in bands cannot express that yet.
+- ~~Staffelpreise have no UI.~~ **Closed 2026-08-09.** S17 takes a ladder of
+  "ab {n} {Einheit} — {Preis}" rows. Only the lower bound is asked for; upper bounds
+  are derived from the next band up, so a hand-entered ladder is total and
+  non-overlapping by construction. A band under the item floor is rejected at entry,
+  because the engine would otherwise clamp it silently and price at the floor with
+  nothing to explain the difference.
 - **Phase 3** the extraction worker itself (types exist, the Claude calls do not).
 - **Phase 4** calendar sync (F4.9–F4.12) and the VIES lookup behind F4.5.
   `AvailabilityOutcome` is consumed by the engine but nothing populates it yet, so
