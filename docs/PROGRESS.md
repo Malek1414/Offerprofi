@@ -2,6 +2,58 @@
 
 **Updated:** 2026-08-09
 
+> ## ⚠⚠ THE SPEC PIVOTED ON 2026-08-09. READ THIS BEFORE ANYTHING ELSE.
+>
+> **The product is now: a customer builds a catering *request*; the caterer is the first
+> party to attach money.** Vertical narrowed to catering, first customer is a caterer,
+> price point €99.99/month. The plan of record is
+> `~/.claude/plans/cryptic-growing-crystal.md`.
+>
+> **Most of this file describes the old spec** — hosted chat → AI prices from the
+> catalogue → branded quote. Everything below the "State of the tree" section is still
+> accurate about *what is built*, and increasingly wrong about *why*. Trust the plan file
+> over this one wherever they disagree.
+>
+> ### What changed, in one paragraph
+>
+> The AI never quotes. It extracts a `CateringRequest` (no field for a price exists in the
+> type or the output schema), asks until a caterer could actually answer, and hands the
+> request over. The pricing engine did **not** leave — it moved to the *owner's* side, where
+> it renders as a suggested price with a per-service breakdown and his profit margin. A
+> wrong number in front of a customer is a lost deal; the same number in front of the
+> caterer is a suggestion he overrules in three seconds.
+>
+> ### Done so far
+>
+> - **Phase A** — `src/domain/catering-request.ts` + `src/domain/extracted.ts`.
+>   `src/agent/extraction.ts` retargeted. `event-brief.ts` keeps `EventBrief` untouched
+>   because the golden-set-tested engine consumes it.
+> - **Phase B (module)** — `src/agent/qualify.ts`. `readyToSend` computed in code, questions
+>   written by the model, capped and filtered here, and no schema field by which it could
+>   decline anyone.
+>
+> ### Next, in order
+>
+> 1. **Wire Phase B into `src/app/api/chat/[slug]/route.ts`** — behind the first streamed
+>    chunk, never in front of it. The wrinkle to plan for: `recordChatTurnDetached` discards
+>    the inquiry id extraction needs, deliberately, to keep the write off the F1.9 path.
+>    Chain off the same promise; do not start a second one.
+> 2. **Phase D (web only)** — `/r/{token}`, one self-contained HTML file, two documents from
+>    one route. **The customer's copy must contain no price, total or margin, and a test
+>    must assert it** — this is the new spec's equivalent of the I2 test.
+> 3. **Phase E (owner side)** — the Unipile adapter, emitting the existing `InboundEvent`
+>    envelope. Two mitigations are mandatory, not optional hardening: threads are
+>    inbound-initiated only via a `wa.me` deep link, and there is a per-account daily cap on
+>    new threads with an email fallback.
+> 4. **Phase B2** — the owner-side price suggestion. Cheapest high-value phase in the plan:
+>    the engine, `toPricingInput`, the trace renderer and the candidate-confirmation flow all
+>    already exist. Needs one `cost_cents` column and `src/engine/margin.ts` **wrapping**
+>    `PricedQuote` — do not edit the engine.
+>
+> Deferred but now unavoidable: object storage (30+ PDFs, uploads, voice notes), and a small
+> always-on worker container, because whisper.cpp and a model file cannot run in a serverless
+> function.
+
 > ## ⚠ If you are a new session, read “▶ PICK UP HERE” before touching anything
 >
 > **The priority changed on 2026-08-09 and it overrides the phase order in
