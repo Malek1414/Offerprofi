@@ -26,6 +26,11 @@ export const INQUIRY_STATES = [
   'acknowledged',
   'extracting',
   'qualifying',
+  /**
+   * She pressed send and the caterer has it. Not `owner_handling` — he has not
+   * picked it up yet, and the gap between those two is the whole SLA.
+   */
+  'sent_to_owner',
   'priced',
   'quote_sent',
   'negotiating',
@@ -89,8 +94,18 @@ export function isHumanOnlyState(state: InquiryState): state is HumanOnlyState {
 const TRANSITIONS: Readonly<Record<InquiryState, readonly InquiryState[]>> = {
   new: ['acknowledged', 'escalated', 'spam', 'archived'],
   acknowledged: ['extracting', 'escalated', 'spam', 'archived'],
-  extracting: ['qualifying', 'priced', 'escalated', 'archived'],
-  qualifying: ['qualifying', 'priced', 'escalated', 'expired', 'archived'],
+  extracting: ['qualifying', 'sent_to_owner', 'priced', 'escalated', 'archived'],
+  qualifying: ['qualifying', 'sent_to_owner', 'priced', 'escalated', 'expired', 'archived'],
+  sent_to_owner: [
+    'owner_handling',
+    'negotiating',
+    'priced',
+    'quote_sent',
+    'escalated',
+    'declined_by_customer',
+    'expired',
+    'archived',
+  ],
   priced: ['quote_sent', 'escalated', 'archived'],
   quote_sent: [
     'negotiating',

@@ -638,4 +638,146 @@ begin
   raise notice 'PASS X4 — every state edge the agent took is in the audit log';
 end $$;
 
+-- ─── 0011: she presses send, and two documents exist ────────────────────────
+--
+-- Uses the *second* session's inquiry, which is still in `new` — the first was
+-- escalated by the 0010 assertions above, and an escalated thread staying
+-- escalated is itself asserted there.
+
+do $$
+begin
+  perform set_config(
+    'test.send_inquiry_id',
+    (select cs.inquiry_id::text from public.chat_sessions cs
+      where cs.session_token_hash = 'hash-session-2'),
+    false);
+end $$;
+
+set role app_login;
+
+do $$
+declare
+  target uuid := current_setting('test.send_inquiry_id')::uuid;
+  other_agency uuid := 'aaaaaaaa-0000-0000-0000-000000000002';
+  agency uuid := 'aaaaaaaa-0000-0000-0000-000000000001';
+  sent record;
+  doc record;
+  found record;
+  links int;
+begin
+  perform set_config('app.current_user_id', '', false);
+
+  -- A request needs something to summarise.
+  perform public.record_event_brief(
+    agency, target,
+    '{"headcount": {"value": 40, "confidence": 0.9}, "language": "de"}'::jsonb,
+    '{"name": "Nina Vogel", "email": "nina@example.de"}'::jsonb,
+    1.0, 0.9);
+
+  select * into found from public.inquiry_for_session(agency, 'hash-session-2');
+  if found.inquiry_id is distinct from target then
+    raise exception 'Phase D: the session did not resolve to its inquiry';
+  end if;
+  raise notice 'PASS Phase D — a live session resolves to its inquiry without writing';
+
+  begin
+    perform * from public.send_request_to_owner(other_agency, target, 'h-x', 'h-y');
+    raise exception 'F0.4: a request was sent on another tenant''s inquiry';
+  exception when others then
+    if sqlerrm like '%does not belong to agency%' then
+      raise notice 'PASS F0.4 — send_request_to_owner refuses a mismatched pair';
+    else
+      raise;
+    end if;
+  end;
+
+  select * into sent from public.send_request_to_owner(
+    agency, target, 'hash-customer-token', 'hash-owner-token');
+  if sent.state <> 'sent_to_owner' then
+    raise exception 'Phase D: expected sent_to_owner, got %', sent.state;
+  end if;
+  if sent.already_sent then
+    raise exception 'Phase D: a first send reported itself as a repeat';
+  end if;
+  raise notice 'PASS Phase D — sending walks the inquiry to sent_to_owner';
+
+  -- Pressing send twice is one send. Two requests in his tray for one event is
+  -- worse than a button that appears to do nothing the second time.
+  select * into sent from public.send_request_to_owner(
+    agency, target, 'hash-second-attempt', 'hash-second-attempt-owner');
+  if not sent.already_sent then
+    raise exception 'Phase D: the second press created a second send';
+  end if;
+  raise notice 'PASS Phase D — sending twice is sending once';
+
+  -- ── THE PRICE-LEAK RULE, AT THE ROW ──────────────────────────────────────
+  -- Her document is built from a row that has nulls where his has contact
+  -- details, so the component cannot render what it was never handed. When the
+  -- price suggestion lands (Phase B2) it goes in exactly the same place.
+  select * into doc from public.resolve_request_link('hash-customer-token');
+  if doc.audience <> 'customer' then
+    raise exception 'Phase D: the customer token resolved to the % document', doc.audience;
+  end if;
+  if doc.contact_json is not null then
+    raise exception 'I2/Phase D: contact details were returned for the customer''s token';
+  end if;
+  if doc.brief_json -> 'headcount' ->> 'value' <> '40' then
+    raise exception 'Phase D: the customer''s document lost the request';
+  end if;
+  raise notice 'PASS Phase D — the customer''s row carries no contact details';
+
+  select * into doc from public.resolve_request_link('hash-owner-token');
+  if doc.audience <> 'owner' then
+    raise exception 'Phase D: the owner token resolved to the % document', doc.audience;
+  end if;
+  if doc.contact_json ->> 'name' is null then
+    raise exception 'Phase D: the owner''s document has no way to reach her';
+  end if;
+  raise notice 'PASS Phase D — the owner''s row does';
+
+  -- A token that never existed resolves to nothing, and says nothing about why.
+  -- Anything else is a hint to whoever is guessing.
+  if exists (select 1 from public.resolve_request_link('hash-never-minted')) then
+    raise exception 'Phase D: an unknown token resolved to something';
+  end if;
+  raise notice 'PASS Phase D — an unknown token is an empty answer';
+end $$;
+
+reset role;
+
+do $$
+declare
+  target uuid := current_setting('test.send_inquiry_id')::uuid;
+  visible int;
+  links int;
+begin
+  -- Counted here rather than inside the app_login block above: RLS correctly hides
+  -- these rows from a caller with no identity, so the count there would be zero for
+  -- the right reason and the assertion would prove nothing.
+  select count(*) into links from request_links where inquiry_id = target;
+  if links <> 2 then
+    raise exception 'Phase D: expected exactly 2 links, found %', links;
+  end if;
+  raise notice 'PASS Phase D — one send, two documents, and no more';
+
+  -- Revocation, from a seat that can write it: nothing revokes a link yet, and the
+  -- column exists so that during an incident it is an update rather than a
+  -- migration. Asserting it now is what makes that true when it is needed.
+  update request_links set revoked_at = now() where token_hash = 'hash-owner-token';
+  if exists (select 1 from public.resolve_request_link('hash-owner-token')) then
+    raise exception 'Phase D: a revoked token still resolves';
+  end if;
+  raise notice 'PASS Phase D — a revoked token is the same empty answer as an unknown one';
+
+  -- F0.4 on the new table, from the other tenant's seat.
+  perform set_config('app.current_user_id',
+    (select u.id::text from users u where u.email = 'markus@example.test'), false);
+  set local role app_user;
+  select count(*) into visible from request_links;
+  if visible <> 0 then
+    raise exception 'F0.4: another tenant read % request_links rows', visible;
+  end if;
+  raise notice 'PASS F0.4 — request_links is not readable across tenants';
+end $$;
+
 select 'ALL DATABASE ASSERTIONS PASSED' as result;

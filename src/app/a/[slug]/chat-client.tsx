@@ -57,6 +57,11 @@ export function ChatClient(props: Props) {
   const [failed, setFailed] = useState(false)
   const [paused, setPaused] = useState(false)
   const [honeypot, setHoneypot] = useState('')
+  /** Phase D — the server said the request is complete enough to hand over. */
+  const [canSend, setCanSend] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [sentUrl, setSentUrl] = useState<string | null>(null)
+  const [sendFailed, setSendFailed] = useState(false)
 
   const transcriptRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -108,7 +113,7 @@ export function ChatClient(props: Props) {
         })
 
         if (!response.ok || !response.body) throw new Error(`status ${response.status}`)
-        await consumeStream(response.body, setBubbles)
+        await consumeStream(response.body, setBubbles, () => setCanSend(true))
       } catch (error) {
         // An abort is the customer interrupting on purpose (F1.14). It is not a
         // failure and must not surface as one.
@@ -145,6 +150,31 @@ export function ChatClient(props: Props) {
     ])
     void send('', { requestHuman: true })
   }, [props.formality, props.language, props.ownerName, send])
+
+  /**
+   * Phase D — hand the request to the caterer.
+   *
+   * Hers to press, and only hers. The assistant asks and summarises; it never
+   * decides that an enquiry is finished. Nothing priced and nothing binding
+   * exists on the other side of this button (I3).
+   */
+  const sendRequest = useCallback(async () => {
+    setSendFailed(false)
+    setSending(true)
+    try {
+      const response = await fetch(`/api/chat/${props.slug}/send`, { method: 'POST' })
+      if (!response.ok) throw new Error(`status ${response.status}`)
+      const body = (await response.json()) as { url?: string; alreadySent?: boolean }
+      // A second press is the same send. She still lands on "it is on its way",
+      // because from where she is sitting that is exactly what happened.
+      setSentUrl(body.url ?? '')
+      setCanSend(false)
+    } catch {
+      setSendFailed(true)
+    } finally {
+      setSending(false)
+    }
+  }, [props.slug])
 
   const started = bubbles.length > 0
 
@@ -251,6 +281,35 @@ export function ChatClient(props: Props) {
         )}
       </div>
 
+      {/* Phase D — the send control. It appears when the request is complete
+          enough to be useful and never blocks her before that: the composer stays
+          open either way, and nothing here can tell her she may not send. */}
+      {sentUrl !== null ? (
+        <div className={styles.sent} role="status">
+          <strong className={styles.sentTitle}>{strings.sentTitle}</strong>
+          <span>{strings.sentBody}</span>
+          {sentUrl ? (
+            <a className={styles.sentLink} href={sentUrl}>
+              {strings.viewSummary}
+            </a>
+          ) : null}
+        </div>
+      ) : canSend && !paused ? (
+        <div className={styles.sendPanel}>
+          <button
+            type="button"
+            className={styles.sendRequest}
+            onClick={() => void sendRequest()}
+            disabled={sending}
+          >
+            {sending ? strings.sending : strings.sendRequest}
+          </button>
+          <span className={styles.sendHint}>
+            {sendFailed ? strings.sendFailed : strings.sendHint}
+          </span>
+        </div>
+      ) : null}
+
       <form
         className={styles.composer}
         onSubmit={(e) => {
@@ -321,6 +380,7 @@ export function ChatClient(props: Props) {
 async function consumeStream(
   body: ReadableStream<Uint8Array>,
   setBubbles: React.Dispatch<React.SetStateAction<Bubble[]>>,
+  onReady?: () => void,
 ): Promise<void> {
   const reader = body.getReader()
   const decoder = new TextDecoder()
@@ -373,6 +433,10 @@ async function consumeStream(
         const id = currentId
         setBubbles((prev) => prev.map((b) => (b.id === id ? { ...b, streaming: false } : b)))
         currentId = null
+      } else if (event === 'ready') {
+        // Not a turn: the assistant did not say this. The server computed that the
+        // request is complete enough to hand over, and the control appears.
+        onReady?.()
       }
     }
   }

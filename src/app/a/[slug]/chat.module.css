@@ -299,6 +299,67 @@
 
 /* ─── Composer ────────────────────────────────────────────────────────────── */
 
+/* ── Phase D: handing the request over ─────────────────────────────────────
+   Sits between the transcript and the composer, so it reads as the next step
+   rather than as a replacement for typing. The composer stays open underneath:
+   she can always keep talking instead of sending. */
+.sendPanel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--brand-wash);
+  border-top: 1px solid var(--brand-line);
+}
+
+.sendRequest {
+  padding: 0.6rem 1.1rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--on-brand);
+  background: var(--brand);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.sendRequest:hover {
+  filter: brightness(0.95);
+}
+
+.sendRequest[disabled] {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.sendHint {
+  flex: 1;
+  min-width: 12rem;
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+}
+
+.sent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.6rem;
+  padding: 0.75rem 1rem;
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+  background: var(--brand-wash);
+  border-top: 1px solid var(--brand-line);
+}
+
+.sentTitle {
+  color: var(--ink);
+}
+
+.sentLink {
+  color: var(--brand-ink);
+}
+
 .composer {
   position: sticky;
   bottom: 0;

@@ -98,6 +98,71 @@ export function quoteLegalBlock(p: LegalTextParams, ownerName: string): QuoteLeg
   }
 }
 
+export interface RequestLegalBlock {
+  version: string
+  /** I3 — nothing here is an offer, so nothing here can be accepted into a contract. */
+  nothingBinding: string
+  /**
+   * The same fact, told to the caterer, who needs the opposite half of it: that he
+   * is free. Addressed to him — the customer-facing sentence says "Ihnen", which on
+   * his copy would be talking to the wrong person about the wrong thing.
+   */
+  nothingPromised: string
+  /** Art. 50(1) — she is told, on the document, that an assistant wrote it. */
+  aiDisclosure: string
+  /** What happens next, in one sentence. The SLA promise lives elsewhere (§9.8). */
+  whatHappensNext: string
+}
+
+/**
+ * The legal block for a *request*, which is not a quote and must not read like one.
+ *
+ * `quoteLegalBlock` says a contract forms on confirmation and offers an accept
+ * button. None of that is true here: no price exists yet, nobody has offered
+ * anything, and the only thing that has happened is that a description of an event
+ * has been passed to a caterer. Reusing the quote wording would put "freibleibend"
+ * on a document with nothing to be free of — which reads as though a price were
+ * being withheld.
+ */
+export function requestLegalBlock(
+  p: Pick<LegalTextParams, 'agencyName' | 'language'>,
+  ownerName: string,
+): RequestLegalBlock {
+  return p.language === 'de'
+    ? {
+        version: LEGAL_TEXT_VERSION,
+        nothingBinding:
+          `Diese Zusammenfassung ist kein Angebot und keine Buchung. Sie enthält keine ` +
+          `Preise. Verbindlich wird nichts, bevor ${p.agencyName} Ihnen ein Angebot ` +
+          `gemacht und Sie es angenommen haben.`,
+        nothingPromised:
+          `Der Kundin wurde kein Preis genannt und nichts zugesagt. Was Sie anbieten ` +
+          `und zu welchem Preis, entscheiden allein Sie.`,
+        aiDisclosure:
+          `Diese Zusammenfassung wurde von einem KI-Assistenten aus Ihrem Gespräch ` +
+          `erstellt. ${ownerName} liest sie persönlich.`,
+        whatHappensNext:
+          `${ownerName} sieht Ihre Anfrage und meldet sich mit einem Angebot — mit ` +
+          `Preisen, die ${ownerName} selbst festlegt.`,
+      }
+    : {
+        version: LEGAL_TEXT_VERSION,
+        nothingBinding:
+          `This summary is not an offer and not a booking. It contains no prices. ` +
+          `Nothing is binding until ${p.agencyName} has made you an offer and you have ` +
+          `accepted it.`,
+        nothingPromised:
+          `No price has been quoted to her and nothing has been promised. What you ` +
+          `offer, and at what price, is entirely yours to decide.`,
+        aiDisclosure:
+          `This summary was prepared by an AI assistant from your conversation. ` +
+          `${ownerName} reads it personally.`,
+        whatHappensNext:
+          `${ownerName} has your enquiry and will come back with an offer — at prices ` +
+          `${ownerName} sets personally.`,
+      }
+}
+
 /**
  * AI Act Art. 50(2) machine-readable marking of synthetic content.
  *

@@ -5,8 +5,8 @@ Updated 2026-08-09.
 
 ## Verified working
 
-`npm run verify` — typecheck, lint and **368 tests**, all green. `npm run test:db` applies
-all seven migrations to a scratch PostgreSQL and runs **two assertion suites** against it.
+`npm run verify` — typecheck, lint and **498 tests**, all green. `npm run test:db` applies
+all eleven migrations to a scratch PostgreSQL and runs **two assertion suites** against it.
 `npm run build` produces a clean production build. `npm run dev` then `/q/demo` renders a
 real quote priced by the real engine, `/a/{slug}` runs the hosted chat for **any real
 tenant** against the real endpoint, and `/signup` and `/login` render the owner-side auth
@@ -66,6 +66,8 @@ request path, not just in a test).
 | F3.3/F3.5 extraction | **Done** | `src/agent/extraction.ts` — transcript → `EventBrief` + `ContactPartition`, one `extractions` row per field. Invented service ids are discarded (D8); language and formality stay deterministic; completeness and overall confidence are computed here, not asked for |
 | F3.11 injection handling | **Done** | Untrusted blocks with the delimiter escaped (`src/agent/prompt.ts`). `injection_suspected` is reported and escalates; it changes no other field and refuses nobody |
 | F3.7/F3.9/F3.10 qualifying loop, wired | **Done** | `src/chat/qualifying-turn.ts` — one turn runs extraction, stores the request, then asks at most two questions the model wrote from the fields code says are missing. Streams on the same connection as the ack, always behind it. Every failure path ends in a handoff to a person, never a refusal (I1, I5) |
+| F5.2/F5.3 request document (Phase D) | **Done** | `/r/{token}` — two documents from one route, self-contained HTML, no external origin, dark and print variants. The customer's copy carries no money and no contact details, enforced by the query (0011), by `requestRows` and by a grep over the rendered page |
+| Phase D send | **Done** | `POST /api/chat/{slug}/send` — hers to press, idempotent, and it never refuses a thin or escalated request. Mints two unrelated tokens, stores hashes only, walks the inquiry to `sent_to_owner` |
 | Qualifying-loop storage | **Done** | Migration 0010: `conversation_context` (the bounded state one turn is given, fixed column list) and `record_agent_progress`, whose outcome argument admits exactly two values — Invariant 1 in a function signature. Six database assertions |
 | F3.6 confidence policy | **Done** | `evaluateConfidence()` implements the §4.10 table |
 | F4.1 `PricingInput` + pure function | **Done** | No I/O, no model call, no personal field. Purity asserted by test |
@@ -139,8 +141,11 @@ Everything else in the inventory. Named explicitly rather than left to inference
    verified to isolate two tenants in both directions (`npm run test:db`). What
    remains is a hosted EU instance, plus S3-compatible object storage and our own
    auth (D29).
-2. **The quote route serves a demo tenant.** Token resolution against the database is
-   not implemented; `/q/demo` is hardcoded.
+2. **The *quote* route still serves a demo tenant.** `/q/demo` is hardcoded and token
+   resolution against the database is not implemented there. The *request* route
+   `/r/{token}` does resolve real tokens (Phase D) — under the pivot that is the
+   document the loop actually produces, and the quote page is the caterer's later
+   offer, which he has not written yet.
 3. **Accept / decline / request-human buttons render but do nothing.** The endpoints
    in spec §11 are not built.
 4. **`reduceScopeToBudget` removes whole lines only.** It will not reduce a guest count

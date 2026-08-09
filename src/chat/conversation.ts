@@ -258,6 +258,18 @@ export function chatStrings(language: Language, formality: Exclude<Formality, 'u
       uploadTooMany: 'Mehr als 10 Dateien gehen leider nicht.',
       uploadUnsupported: 'Dieses Dateiformat können wir nicht lesen.',
       uploadEmpty: 'Die Datei ist leer.',
+      // Phase D — the send control. Never says the request is "complete enough":
+      // she decides when it is ready, and the button appears rather than unlocks.
+      sendRequest: 'Anfrage jetzt senden',
+      sendHint: du
+        ? 'Du kannst vorher noch etwas ergänzen oder korrigieren.'
+        : 'Sie können vorher noch etwas ergänzen oder korrigieren.',
+      sentTitle: 'Anfrage ist raus.',
+      sentBody: du
+        ? 'Du bekommst Antwort auf dem Weg, den du angegeben hast.'
+        : 'Sie bekommen Antwort auf dem Weg, den Sie angegeben haben.',
+      viewSummary: 'Zusammenfassung ansehen',
+      sendFailed: 'Das Senden hat gerade nicht geklappt. Bitte noch einmal versuchen.',
     }
   }
   return {
@@ -283,5 +295,11 @@ export function chatStrings(language: Language, formality: Exclude<Formality, 'u
     uploadTooMany: 'Sorry, 10 files is the maximum.',
     uploadUnsupported: "We can't read that file format.",
     uploadEmpty: 'That file is empty.',
+    sendRequest: 'Send my enquiry',
+    sendHint: 'You can still add or correct anything first.',
+    sentTitle: 'Your enquiry is on its way.',
+    sentBody: "You'll hear back on whichever way you gave us.",
+    viewSummary: 'View summary',
+    sendFailed: "That didn't send. Please try again.",
   }
 }

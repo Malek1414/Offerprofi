@@ -340,7 +340,13 @@ function streamTurns<T>(
           // typing indicator, and it is the only place in the request where a model
           // round trip is allowed to be visible.
           send('working', {})
-          await stream(await pending)
+          const answer = await pending
+          await stream(answer)
+          // The request is complete enough to hand over, so the client may offer
+          // the send control. It is a separate frame rather than a turn kind
+          // because it is not something the assistant *said* — and because the
+          // decision belongs to code, not to the sentence the model wrote.
+          if (answer.some((t) => t.kind === 'summary_prompt')) send('ready', {})
         }
         send('done', {})
       } catch (error) {

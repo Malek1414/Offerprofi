@@ -39,9 +39,9 @@
 > ### Next, in order
 >
 > 1. ~~Wire Phase B into the chat route.~~ **Done 2026-08-09.**
-> 2. **Phase D (web only)** — `/r/{token}`, one self-contained HTML file, two documents from
->    one route. **The customer's copy must contain no price, total or margin, and a test
->    must assert it** — this is the new spec's equivalent of the I2 test.
+> 2. ~~**Phase D (web only)** — `/r/{token}`.~~ **Done 2026-08-09.** Two documents from one
+>    route, the price-leak test written at both levels (rows and rendered HTML), and the
+>    send button in the chat.
 > 3. **Phase E (owner side)** — the Unipile adapter, emitting the existing `InboundEvent`
 >    envelope. Two mitigations are mandatory, not optional hardening: threads are
 >    inbound-initiated only via a `wa.me` deep link, and there is a per-account daily cap on
@@ -91,6 +91,53 @@
 > - Outbound turns are **still not stored.** The transcript sent to the model is the customer's
 >   half only, which is consistent — but the caterer will eventually read this thread.
 
+> ## The loop closes — Phase D, 2026-08-09
+>
+> **She presses send, and two documents exist.** `POST /api/chat/{slug}/send` mints two
+> unrelated tokens, stores their hashes, walks the inquiry to the new `sent_to_owner` state
+> and returns hers. `GET /r/{token}` renders whichever document the token belongs to.
+>
+> **The price-leak rule is enforced in three places, deliberately:**
+>
+> 1. `resolve_request_link` returns `contact_json` **only for the owner's audience**. Her
+>    document is built from a row with nulls in those columns, so the component cannot leak
+>    what it was never handed. **Phase B2's price block goes in exactly this place.**
+> 2. `requestRows()` drops `MONEY_FIELDS` for the customer audience — the budget she
+>    mentioned is information *for him*, and echoing it back to her on a forwardable document
+>    buys nothing while making the rule a judgement call.
+> 3. `tests/requests/document.test.tsx` renders both copies and greps the HTML: no `€`, no
+>    `EUR`, no `6.000`, no invoice vocabulary, no contact details. Written against the output
+>    rather than the props because the realistic B2 regression is a conditional that renders
+>    for both audiences — a props check would not notice.
+>
+> **Send never refuses.** Not for a thin request, not for low confidence, not for an escalated
+> thread. "Your enquiry is not complete enough to send" is software turning a customer away.
+> Completeness decides what the assistant *asks*, never what she is allowed to do — verified
+> live against an escalated inquiry, which sent fine.
+>
+> **Things worth not rediscovering:**
+>
+> - **`sent_to_owner` is a new enum value**, and it is reached by *her*, not by the agent —
+>   which is why `record_agent_progress` still has exactly two outcomes. Adding it meant
+>   restating `enforce_inquiry_transition` in full (0011); a partial redefinition silently
+>   drops every row it does not mention.
+> - A function with an OUT parameter named `state` cannot say `where state = 'new'` — the
+>   name resolves to the variable. Alias the table.
+> - **RLS bites inside the tests too.** Counting `request_links` from the `app_login` seat
+>   returns zero for the right reason and proves nothing; those assertions have to run after
+>   `reset role`. Same for revoking a link. This cost two round trips.
+> - **A sent request with no extraction still has a document**, showing the empty state rather
+>   than a 404. Without an API key that is every request, and a 404 would tell her the enquiry
+>   she just sent does not exist.
+> - The owner's copy does not carry the customer's *freibleibend* sentence — it is addressed
+>   to "Ihnen" and would be talking to the wrong person. His half of the same fact is that
+>   nothing was quoted to her, so he is free.
+> - The owner's link is currently a structured server log line (`request_ready_for_owner`).
+>   Phase E replaces it with the WhatsApp message; `/inbox` (Phase F) makes it findable.
+> - **Unverified without the key:** the send *button* appears on the `ready` SSE frame, which
+>   only fires when the model says the request is complete. The endpoint behind it is verified
+>   by curl end to end; the button itself has never been on a screen.
+
 > ## ⚠ If you are a new session, read “▶ PICK UP HERE” before touching anything
 >
 > **The priority changed on 2026-08-09 and it overrides the phase order in
@@ -124,8 +171,8 @@ short version: where the work stopped, and what to pick up.
 ## State of the tree
 
 ```
-npm run verify     typecheck + lint + 466 tests         green
-npm run test:db    10 migrations + 2 assertion suites   green   (needs local Postgres)
+npm run verify     typecheck + lint + 498 tests         green
+npm run test:db    11 migrations + 2 assertion suites   green   (needs local Postgres)
 npm run build      production build                     clean
 ```
 
