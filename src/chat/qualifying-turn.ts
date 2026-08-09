@@ -30,6 +30,7 @@
 import { recordAgentProgress, loadConversationContext } from '../agent/conversation-store'
 import { storeCateringRequest } from '../agent/brief-store'
 import { extractRequest } from '../agent/extraction'
+import { loadAgencyFacts } from '../agent/facts'
 import { qualify } from '../agent/qualify'
 import type { CateringRequest, RequiredRequestField } from '../domain/catering-request'
 import type { ContactPartition } from '../domain/extracted'
@@ -133,6 +134,11 @@ export async function runQualifyingTurn(input: QualifyingTurnInput): Promise<Age
     return escalate('injection_suspected')
   }
 
+  // Phase C, structured half. Confirmed facts only, and an empty list simply
+  // produces more generic questions — so a caterer who has confirmed nothing
+  // still has a working conversation.
+  const facts = await loadAgencyFacts(input.agencyId)
+
   const outcome = await qualify({
     agencyId: input.agencyId,
     inquiryId: input.inquiryId,
@@ -140,6 +146,7 @@ export async function runQualifyingTurn(input: QualifyingTurnInput): Promise<Age
     messages,
     agencyName: input.agencyName,
     ownerName: input.ownerName,
+    facts,
   })
 
   if (!outcome.ok) {

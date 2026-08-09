@@ -15,6 +15,7 @@
 
 import { describe, expect, it } from 'vitest'
 
+import type { CateringRequest } from '../../src/domain/catering-request'
 import { INQUIRY_STATES, type InquiryState } from '../../src/domain/inquiry-state'
 import { relativeTime, requestOneLiner, stateLabel } from '../../src/inbox/labels'
 
@@ -73,27 +74,36 @@ describe('no label reads as a refusal', () => {
 })
 
 describe('the one-line summary', () => {
-  const request = {
-    eventDate: { value: '2027-06-12' },
-    headcount: { value: 80 },
-    serviceStyle: { value: 'buffet' },
+  const base: CateringRequest = {
+    language: 'de',
+    formality: 'sie',
+    meta: { extractionVersion: 't', model: 't', completeness: 1, overallConfidence: 0.9 },
   }
+  const at = <T,>(value: T) => ({ value, confidence: 0.9, source: 'm1', sourceKind: 'ai' as const })
 
-  it('reads as a sentence a caterer scans', () => {
-    expect(requestOneLiner(request)).toBe('12. Juni 2027 · 80 Personen · buffet')
+  it('reads as a sentence a caterer scans, with labels not enum values', () => {
+    // It printed the raw "buffet" in his inbox until this went through the same
+    // renderer as the detail page.
+    const request: CateringRequest = {
+      ...base,
+      eventDate: at('2027-06-12'),
+      headcount: at(80),
+      serviceStyle: at('buffet' as const),
+    }
+    expect(requestOneLiner(request)).toBe('12. Juni 2027 · 80 Personen · Buffet')
   })
 
   it('says so plainly when nothing has been extracted', () => {
     expect(requestOneLiner(null)).toBe('Noch keine Details')
-    expect(requestOneLiner({})).toBe('Noch keine Details')
+    expect(requestOneLiner(base)).toBe('Noch keine Details')
   })
 
   it('leaves out what she never said rather than printing a gap', () => {
-    expect(requestOneLiner({ headcount: { value: 40 } })).toBe('40 Personen')
+    expect(requestOneLiner({ ...base, headcount: at(40) })).toBe('40 Personen')
   })
 
   it('survives a date that never parsed', () => {
-    expect(requestOneLiner({ eventDate: { value: 'im Juni' } })).toContain('im Juni')
+    expect(requestOneLiner({ ...base, eventDate: at('im Juni') })).toContain('im Juni')
   })
 })
 

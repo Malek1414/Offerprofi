@@ -111,6 +111,8 @@ export interface CatalogueItemRow {
   unit: string
   unitPrice: Cents
   floorPrice: Cents
+  /** Phase B2. Null when he has not said what it costs him — never zero. */
+  costCents: number | null
   // From the domain, not restated. A second copy of these unions drifted within an
   // hour of being written — it was missing `per_day`, which the database enum has.
   vatRate: VatRate
@@ -137,6 +139,8 @@ export interface CatalogueItemInput {
   unit: string
   unitPriceCents: number
   floorPriceCents: number
+  /** Phase B2. Null when he has not said what it costs him — never zero. */
+  costCents: number | null
   vatRate: number
   quantityDriver: string
 }
@@ -165,8 +169,8 @@ export async function createCatalogueItem(
     const result = await client.query(
       `insert into catalog_items
          (agency_id, name, description, unit, unit_price_cents, floor_price_cents,
-          vat_rate, quantity_driver, active, confirmed_by, confirmed_at)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, true, public.current_user_id(), now())
+          cost_cents, vat_rate, quantity_driver, active, confirmed_by, confirmed_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, public.current_user_id(), now())
        returning *, 0 as rule_count`,
       [
         agencyId,
@@ -175,6 +179,7 @@ export async function createCatalogueItem(
         input.unit,
         input.unitPriceCents,
         input.floorPriceCents,
+        input.costCents,
         input.vatRate,
         input.quantityDriver,
       ],
@@ -194,7 +199,7 @@ export async function updateCatalogueItem(
     const result = await client.query(
       `update catalog_items
           set name = $2, description = $3, unit = $4, unit_price_cents = $5,
-              floor_price_cents = $6, vat_rate = $7, quantity_driver = $8
+              floor_price_cents = $6, cost_cents = $7, vat_rate = $8, quantity_driver = $9
         where id = $1
        returning *, (select count(*) from price_rules r where r.catalog_item_id = id) as rule_count`,
       [
@@ -204,6 +209,7 @@ export async function updateCatalogueItem(
         input.unit,
         input.unitPriceCents,
         input.floorPriceCents,
+        input.costCents,
         input.vatRate,
         input.quantityDriver,
       ],
@@ -238,6 +244,11 @@ function toCatalogueItem(row: Record<string, unknown>): CatalogueItemRow {
     unit: String(row.unit),
     unitPrice: cents(Number(row.unit_price_cents)),
     floorPrice: cents(Number(row.floor_price_cents)),
+    // Null survives the round trip. `Number(null)` is 0, which would report the
+    // line as pure profit — the one mistake the margin design exists to avoid.
+    costCents: row.cost_cents === null || row.cost_cents === undefined
+      ? null
+      : Number(row.cost_cents),
     vatRate: Number(row.vat_rate) as VatRate,
     quantityDriver: String(row.quantity_driver) as QuantityDriver,
     active: Boolean(row.active),

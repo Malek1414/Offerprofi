@@ -228,3 +228,34 @@ describe('Invariant 1 — the customer-facing agent has no way to say no', () =>
     expect(role).toContain('never state, estimate, imply or hint at a price')
   })
 })
+
+describe('the caterer’s confirmed facts (Phase C, structured half)', () => {
+  const facts = [
+    'Mindestbestellung ab 20 Personen.',
+    'Lieferung im Umkreis von 40 km um Köln.',
+  ]
+
+  it('reaches the model as our own text, not as an untrusted block', () => {
+    // These are rows he confirmed. Putting them through the untrusted framing
+    // would tell the model to distrust the one pile that has no ranker in front
+    // of it, which is the whole reason the pile exists.
+    const instruction = buildInstruction(request({ venue: undefined }), ['venue'], false, facts)
+    expect(instruction).toContain('Mindestbestellung ab 20 Personen.')
+    expect(instruction).toContain('confirmed by him')
+  })
+
+  it('is absent entirely when he has confirmed nothing', () => {
+    const instruction = buildInstruction(request({ venue: undefined }), ['venue'], false, [])
+    expect(instruction).not.toContain('confirmed by him')
+  })
+
+  it('can never become a reason to turn someone away', () => {
+    // INVARIANT 1, at its most fragile point. "Mindestbestellung ab 20 Personen"
+    // plus an enquiry for 12 is the most natural-sounding refusal in the product,
+    // and a model would produce it helpfully. The instruction forbids it in as
+    // many words, and this is the test that keeps the sentence there.
+    const instruction = buildInstruction(request({ venue: undefined }), ['venue'], false, facts)
+    expect(instruction).toContain('never a reason to turn someone away')
+    expect(instruction).toContain('his decision to make')
+  })
+})

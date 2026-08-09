@@ -92,6 +92,12 @@ export interface CatalogueItemForm {
   unitPrice: string
   /** D8 — the hard floor the agent may never quote below. */
   floorPrice: string
+  /**
+   * What this costs him to produce, per unit (Phase B2). Optional, and the only
+   * genuinely new number the pivot asks a caterer for — an empty value means the
+   * margin for this line is reported as *unknown* rather than assumed.
+   */
+  costPrice: string
   vatRate: string
   quantityDriver: string
 }
@@ -102,6 +108,9 @@ export type CatalogueProblem =
   | { field: 'unit'; code: 'missing' | 'too_long' }
   | { field: 'unitPrice'; code: 'missing' | 'unparseable' | 'zero' | 'too_large' }
   | { field: 'floorPrice'; code: 'unparseable' | 'above_unit_price' | 'too_large' }
+  // Deliberately no 'above_unit_price' for cost. A caterer who runs a loss-leader
+  // knows he does, and refusing the number would only stop him entering any.
+  | { field: 'costPrice'; code: 'unparseable' | 'too_large' }
   | { field: 'vatRate'; code: 'invalid' }
   | { field: 'quantityDriver'; code: 'invalid' }
 
@@ -111,6 +120,8 @@ export interface ValidatedCatalogueItem {
   unit: string
   unitPriceCents: number
   floorPriceCents: number
+  /** Null when he has not said. Never zero — zero is a claim, absence is not. */
+  costCents: number | null
   vatRate: VatRate
   quantityDriver: QuantityDriver
 }
@@ -177,6 +188,17 @@ export function validateCatalogueItem(
     }
   }
 
+  // Absent, not zero. The whole margin design turns on this: a missing cost is
+  // reported as unknown, where a zero would report the line as pure profit — a
+  // number that is always wrong in the flattering direction.
+  let costCents: number | null = null
+  if (form.costPrice?.trim()) {
+    const cost = parseEuroAmount(form.costPrice)
+    if (cost === null) problems.push({ field: 'costPrice', code: 'unparseable' })
+    else if (cost > MAX_PRICE_CENTS) problems.push({ field: 'costPrice', code: 'too_large' })
+    else costCents = cost
+  }
+
   // `Number('')` is 0, and 0 is a *valid* VAT rate — so an unanswered VAT field would
   // silently zero-rate the item, and the mistake would first surface on an invoice.
   // Emptiness has to be rejected before the number is looked at.
@@ -196,6 +218,7 @@ export function validateCatalogueItem(
       unit,
       unitPriceCents: unitPrice as number,
       floorPriceCents: (floorPrice ?? unitPrice) as number,
+      costCents,
       vatRate: vatRate as VatRate,
       quantityDriver: driver,
     },

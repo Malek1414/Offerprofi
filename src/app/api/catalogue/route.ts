@@ -119,6 +119,7 @@ function itemFields(body: Record<string, unknown>) {
     unit: str('unit'),
     unitPrice: str('unitPrice'),
     floorPrice: str('floorPrice'),
+    costPrice: str('costPrice'),
     vatRate: str('vatRate'),
     quantityDriver: str('quantityDriver'),
   }

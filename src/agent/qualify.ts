@@ -145,7 +145,7 @@ export async function qualify(input: QualifyInput): Promise<QualifyOutcome> {
     agencyId: input.agencyId,
     inquiryId: input.inquiryId,
     role: buildRole(input),
-    instruction: buildInstruction(input.request, askable, readyToSend),
+    instruction: buildInstruction(input.request, askable, readyToSend, input.facts ?? []),
     documents,
     outputSchema: jsonSchemaFor(QualifyPayloadSchema),
     effort: 'low',
@@ -258,6 +258,8 @@ export function buildInstruction(
   request: CateringRequest,
   askable: readonly AskableField[],
   readyToSend: boolean,
+  /** Confirmed facts about this caterer (Phase C). Ours, so not an untrusted block. */
+  facts: readonly string[] = [],
 ): string {
   const voice = [
     `Write in ${request.language === 'de' ? 'German' : 'English'}`,
@@ -277,6 +279,24 @@ export function buildInstruction(
     `${voice}.`,
     '',
   ]
+
+  if (facts.length) {
+    parts.push(
+      'Facts about this caterer, confirmed by him. Use them to ask better questions —',
+      'if he only delivers within a radius, ask where before asking anything else.',
+      '',
+      ...facts.map((fact) => `- ${fact}`),
+      '',
+      // Without this, a minimum order becomes a refusal within two turns: the model
+      // reads "at least 20 people", sees 12, and helpfully tells her she is too
+      // small. That is the exact sentence Invariant 1 exists to make impossible,
+      // and a fact is the most natural-sounding reason to produce it.
+      'These tell you what to ask about. They are never a reason to turn someone away,',
+      'and you never quote one back as a rule she has broken. If her enquiry sits',
+      'outside one of them, that is his decision to make and you simply pass it on.',
+      '',
+    )
+  }
 
   if (readyToSend) {
     parts.push(

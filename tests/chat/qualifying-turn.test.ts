@@ -26,6 +26,9 @@ vi.mock('../../src/agent/qualify', () => ({
   // The store imports this constant for its message limit.
   TRANSCRIPT_WINDOW: 10,
 }))
+vi.mock('../../src/agent/facts', () => ({
+  loadAgencyFacts: () => Promise.resolve(['Mindestbestellung ab 20 Personen.']),
+}))
 vi.mock('../../src/agent/brief-store', () => ({
   storeCateringRequest: (...args: unknown[]) => storeCateringRequest(...args),
 }))

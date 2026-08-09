@@ -994,4 +994,59 @@ begin
   raise notice 'PASS F0.4 — WhatsApp accounts and threads are not readable across tenants';
 end $$;
 
+-- ─── 0014: the caterer's confirmed facts ────────────────────────────────────
+
+insert into agency_facts (agency_id, key, value, confirmed_by_user_id, confirmed_at)
+values ('aaaaaaaa-0000-0000-0000-000000000001', 'min_order',
+        'Mindestbestellung ab 20 Personen.',
+        '11111111-1111-1111-1111-111111111111', now());
+
+-- A candidate: extracted from his documents, not yet reviewed.
+insert into agency_facts (agency_id, key, value)
+values ('aaaaaaaa-0000-0000-0000-000000000001', 'delivery_radius_km',
+        'Lieferung im Umkreis von 40 km.');
+
+do $$
+begin
+  -- F2.8, applied to facts. A model telling a customer "we deliver up to 50km"
+  -- because it read that off a 2019 PDF he had forgotten about is the failure
+  -- this constraint exists to prevent.
+  insert into agency_facts (agency_id, key, value, confirmed_at)
+  values ('aaaaaaaa-0000-0000-0000-000000000001', 'bad_fact', 'x', now());
+  raise exception 'F2.8: a fact was confirmed with no human attached';
+exception
+  when check_violation then
+    raise notice 'PASS F2.8 — a confirmed fact must name the human who confirmed it';
+end $$;
+
+set role app_login;
+
+do $$
+declare
+  live int;
+begin
+  perform set_config('app.current_user_id', '', false);
+
+  select count(*) into live
+    from public.facts_for_agent('aaaaaaaa-0000-0000-0000-000000000001');
+  if live <> 1 then
+    raise exception 'F2.8/Phase C: expected 1 confirmed fact, the agent can see %', live;
+  end if;
+
+  if exists (
+    select 1 from public.facts_for_agent('aaaaaaaa-0000-0000-0000-000000000001')
+     where value like '%40 km%'
+  ) then
+    raise exception 'F2.8/Phase C: an unconfirmed fact reached the agent';
+  end if;
+  raise notice 'PASS F2.8 — only facts the owner confirmed reach a customer conversation';
+
+  if exists (select 1 from public.facts_for_agent('bbbbbbbb-0000-0000-0000-000000000002')) then
+    raise exception 'F0.4: facts_for_agent crossed tenants';
+  end if;
+  raise notice 'PASS F0.4 — facts are scoped to the agency they belong to';
+end $$;
+
+reset role;
+
 select 'ALL DATABASE ASSERTIONS PASSED' as result;

@@ -19,7 +19,9 @@
  * A test asserts none of these words appears in these labels.
  */
 
+import type { CateringRequest } from '../domain/catering-request'
 import type { InquiryState } from '../domain/inquiry-state'
+import { requestRows } from '../requests/summary'
 
 export type Urgency = 'waiting' | 'active' | 'done' | 'quiet'
 
@@ -56,34 +58,33 @@ export function stateLabel(state: InquiryState): StateLabel {
 }
 
 /**
- * A one-line summary of the request, for the list.
- *
- * Built from typed values only, so a row in his inbox cannot be made to say
- * something by a customer who types carefully. Her free text is on the detail
- * page, where he is reading it as her words rather than as a heading.
+ * What the list shows under a name. Typed values only — never her free text, so a
+ * row in his inbox cannot be made to say something by a customer who types
+ * carefully. Her own words are on the detail page, where he reads them as hers.
  */
-export function requestOneLiner(request: {
-  headcount?: { value: number }
-  eventDate?: { value: string }
-  serviceStyle?: { value: string }
-} | null): string {
-  if (!request) return 'Noch keine Details'
-  const parts: string[] = []
-  if (request.eventDate) parts.push(shortDate(request.eventDate.value))
-  if (request.headcount) parts.push(`${request.headcount.value} Personen`)
-  if (request.serviceStyle) parts.push(request.serviceStyle.value)
-  return parts.length ? parts.join(' · ') : 'Noch keine Details'
-}
+const ONE_LINER_FIELDS: readonly { field: string; unit?: string }[] = [
+  { field: 'eventDate' },
+  // The unit is carried here because the detail page has a label column and this
+  // line does not. "80" on its own is a number with no noun.
+  { field: 'headcount', unit: 'Personen' },
+  { field: 'serviceStyle' },
+]
 
-function shortDate(iso: string): string {
-  const date = new Date(`${iso}T00:00:00Z`)
-  if (Number.isNaN(date.getTime())) return iso
-  return new Intl.DateTimeFormat('de-DE', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(date)
+/** A one-line summary of the request, for the list. */
+export function requestOneLiner(request: CateringRequest | null): string {
+  if (!request) return 'Noch keine Details'
+
+  // Through `requestRows` rather than reading the fields directly, so the list
+  // and the detail page cannot disagree about what "buffet" is called. Reading
+  // `serviceStyle.value` here printed the raw enum in his inbox.
+  const rows = requestRows(request, 'owner', 'de')
+  const parts = ONE_LINER_FIELDS.map(({ field, unit }) => {
+    const value = rows.find((row) => row.field === field)?.value
+    if (!value) return undefined
+    return unit ? `${value} ${unit}` : value
+  }).filter(Boolean)
+
+  return parts.length ? parts.join(' · ') : 'Noch keine Details'
 }
 
 /** How long ago, in words a person uses. */

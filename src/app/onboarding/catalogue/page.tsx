@@ -58,6 +58,7 @@ export default async function CataloguePage() {
         unit: item.unit,
         unitPrice: item.unitPrice,
         floorPrice: item.floorPrice,
+        costCents: item.costCents,
         vatRate: item.vatRate,
         quantityDriver: item.quantityDriver,
         // From the rules actually loaded, not the item's cached count — if the two

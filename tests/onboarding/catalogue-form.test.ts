@@ -97,6 +97,7 @@ const form = (over: Partial<CatalogueItemForm> = {}): CatalogueItemForm => ({
   unit: 'Pauschale',
   unitPrice: '1.180,00',
   floorPrice: '950,00',
+  costPrice: '',
   vatRate: '19',
   quantityDriver: 'flat',
   ...over,
@@ -223,5 +224,40 @@ describe('F2.9 — the owner’s vocabulary, not ours', () => {
     }
     expect(defaultUnit('per_guest')).toBe('Personen')
     expect(defaultUnit('flat')).toBe('Pauschale')
+  })
+})
+
+describe('what a service costs him (Phase B2)', () => {
+  it('is absent, not zero, when he has not said', () => {
+    // The whole margin design turns on this. Zero is a claim — "this line is pure
+    // profit" — and it is always wrong in the flattering direction, on the screen
+    // where he decides whether an event is worth doing.
+    const result = validateCatalogueItem(form({ costPrice: '' }))
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.value.costCents).toBeNull()
+  })
+
+  it('is parsed the same way every other amount is', () => {
+    const result = validateCatalogueItem(form({ costPrice: '437,50' }))
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.value.costCents).toBe(43750)
+  })
+
+  it('accepts a cost above the list price, because a loss-leader is his call', () => {
+    // Deliberately unlike the floor price, which *is* refused above list. He knows
+    // he loses money on it; refusing the number would only stop him entering any.
+    const result = validateCatalogueItem(
+      form({ unitPrice: '100,00', floorPrice: '100,00', costPrice: '150,00' }),
+    )
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.value.costCents).toBe(15000)
+  })
+
+  it('rejects a typo the same way a price would be rejected', () => {
+    const unparseable = validateCatalogueItem(form({ costPrice: 'ungefähr 400' }))
+    expect(unparseable.ok).toBe(false)
+    if (!unparseable.ok) {
+      expect(unparseable.problems).toContainEqual({ field: 'costPrice', code: 'unparseable' })
+    }
   })
 })

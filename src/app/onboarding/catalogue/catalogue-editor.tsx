@@ -45,6 +45,8 @@ export interface EditorItem {
   unit: string
   unitPrice: number
   floorPrice: number
+  /** Phase B2. Null when he has not said what it costs him. */
+  costCents: number | null
   vatRate: number
   quantityDriver: QuantityDriver
   priceRuleCount: number
@@ -64,6 +66,8 @@ const MESSAGES: Record<string, string> = {
   'floorPrice.unparseable': 'Das konnten wir nicht als Betrag lesen. Zum Beispiel: 950,00',
   'floorPrice.above_unit_price': 'Der Mindestpreis darf nicht über dem Preis liegen.',
   'floorPrice.too_large': 'Dieser Betrag sieht nach einem Tippfehler aus.',
+  'costPrice.unparseable': 'Das konnten wir nicht als Betrag lesen. Zum Beispiel: 31,40',
+  'costPrice.too_large': 'Dieser Betrag sieht nach einem Tippfehler aus.',
   'vatRate.invalid': 'Bitte wählen Sie einen Steuersatz.',
   'quantityDriver.invalid': 'Bitte wählen Sie, wonach Sie abrechnen.',
 }
@@ -86,7 +90,7 @@ interface Props {
   initialItems: EditorItem[]
 }
 
-const EMPTY = { name: '', description: '', unitPrice: '', floorPrice: '' }
+const EMPTY = { name: '', description: '', unitPrice: '', floorPrice: '', costPrice: '' }
 
 export function CatalogueEditor({ initialItems }: Props) {
   const [items, setItems] = useState<EditorItem[]>(initialItems)
@@ -132,6 +136,7 @@ export function CatalogueEditor({ initialItems }: Props) {
       description: item.description,
       unitPrice: formatEuroInput(item.unitPrice as Cents),
       floorPrice: formatEuroInput(item.floorPrice as Cents),
+      costPrice: item.costCents === null ? '' : formatEuroInput(item.costCents as Cents),
     })
     setDriver(item.quantityDriver)
     setUnit(item.unit)
@@ -385,6 +390,29 @@ export function CatalogueEditor({ initialItems }: Props) {
           </label>
 
           <label className={styles.field}>
+            <span className={styles.label}>
+              Ihre Kosten
+              <span className={styles.hint}>
+                Was Sie das kostet, pro Einheit. Ungefähr reicht. Leer lassen heißt: Ihr
+                Anteil wird für diese Leistung nicht ausgewiesen.
+              </span>
+            </span>
+            <input
+              className={`${styles.input} ${styles.money}`}
+              value={fields.costPrice}
+              onChange={(e) => setFields({ ...fields, costPrice: e.target.value })}
+              inputMode="decimal"
+              placeholder="31,40"
+              aria-invalid={Boolean(errorFor('costPrice'))}
+            />
+            {errorFor('costPrice') && (
+              <span className={styles.fieldError}>{errorFor('costPrice')}</span>
+            )}
+          </label>
+        </div>
+
+        <div className={`${styles.row} ${styles.rowSplit}`}>
+          <label className={styles.field}>
             <span className={styles.label}>Mehrwertsteuer</span>
             <select
               className={styles.select}
@@ -495,6 +523,7 @@ function normalise(raw: Record<string, unknown>, priceBands: PriceBandForm[]): E
     unit: String(raw.unit),
     unitPrice: Number(raw.unitPrice),
     floorPrice: Number(raw.floorPrice),
+    costCents: raw.costCents === null || raw.costCents === undefined ? null : Number(raw.costCents),
     vatRate: Number(raw.vatRate),
     quantityDriver: String(raw.quantityDriver) as QuantityDriver,
     priceRuleCount: priceBands.length,
