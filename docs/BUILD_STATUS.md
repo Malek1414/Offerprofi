@@ -5,7 +5,7 @@ Updated 2026-08-09.
 
 ## Verified working
 
-`npm run verify` — typecheck, lint and **334 tests**, all green. `npm run test:db` applies
+`npm run verify` — typecheck, lint and **349 tests**, all green. `npm run test:db` applies
 all five migrations to a scratch PostgreSQL and runs **two assertion suites** against it.
 `npm run build` produces a clean production build. `npm run dev` then `/q/demo` renders a
 real quote priced by the real engine, `/a/demo` runs the hosted chat against the real
@@ -46,14 +46,35 @@ request path, not just in a test).
 | F2.9 catalogue CRUD | **Done** | Create, edit, retire. German money parsing. Screens S16/S17. 26 tests |
 | F2.11 manual fallback | **Done** | The whole catalogue is buildable by hand, so poor extraction never blocks onboarding (closes open question #5) |
 | F2.12 progress meter | **Done** | Screen S9. Renders real state; blocked steps are neither done nor actionable |
+| F0.1 repo, TS strict, CI | **Partial** | Repo and strict TS are done and `npm run verify` is the gate locally. **No `.github/workflows` exists**, so nothing blocks a merge yet |
+| F0.2 Postgres EU + storage + pgvector | **Partial** | A real local PostgreSQL 18 with migrations and RLS. Not hosted, not EU-verified, no pgvector confirmed, no object storage |
 | F0.3 schema | **Done** | 33 tables, indexes, enums |
 | F0.4 RLS | **Done** | Generated from a list plus a migration-time coverage assertion |
+| F0.5 storage bucket policies | **Not started** | The blocker for most of the rest of Phase 2 |
 | F0.8 tenancy tests | **Done** | `npm run test:db` — 8 assertions, executed against real Postgres. Isolation verified in both directions |
+| F0.9 `audit_log` helper | **Partial** | The database trigger writes on every inquiry transition and is asserted (X4). No application-side helper or actor resolution yet |
+| F0.10 Vercel + preview deploys | **Not started** | No `vercel.json`, no deploy configured |
+| F0.11 Anthropic client wrapper | **Not started** | **No model call exists anywhere in the product yet.** Everything shipped so far is deterministic |
+| F0.12 feature-flag table | **Not started** | Needed to ship Phases 10–12 dark |
+| F0.13 external verification track | **Not started** | Non-code, day-1 item (§5). DPA, Stripe, Cloudflare, Meta, Google, counsel |
 | F3.1/F3.2 EventBrief + `_contact` | **Done** | Types and confidence policy. Extraction worker not built |
 | F3.6 confidence policy | **Done** | `evaluateConfidence()` implements the §4.10 table |
-| F4.1–F4.8 pricing engine | **Done** | Golden set reproduces to the cent |
+| F4.1 `PricingInput` + pure function | **Done** | No I/O, no model call, no personal field. Purity asserted by test |
+| F4.2 calculation order + trace | **Done** | Spec §7.3 order 1–9; every figure reconstructible from the trace |
+| F4.3 tiered `price_rules` | **Done** | Band boundaries tested at the edges |
+| F4.4 modifiers | **Done** | Ordered, each recorded individually in the trace |
+| F4.5 VAT per line | **Partial** | 19% / 7% / 0% split works and is tested. `reverseCharge` is an **input flag** — the VIES lookup that should set it is not built |
+| F4.6 rounding | **Done** | Half-up 2dp at line level, totals summed from rounded lines |
+| F4.7 budget handling | **Done** | Reduced-scope variant from catalogue items only. Never discounts, never declines |
+| F4.8 golden set | **Done** | Reproduces to the cent |
+| F4.9 calendar sync | **Not started** | No Google/Graph client exists |
+| F4.10 calendar connect flow | **Partial** | The "works fully with no calendar connected" half is true and is the current state. No connect flow |
+| F4.11 capacity / blackout / peak / lead time | **Partial** | All four modelled with defaults; lead time and capacity are owner-editable on S15. `blackoutDates` and `peakSeasonRanges` have **no UI** |
+| F4.12 `AvailabilityOutcome` | **Partial** | Type exists and the evaluator consumes it correctly (none of the three auto-declines). Nothing computes it — it arrives as an input |
 | F4.13 guardrails | **Done** | All rules from spec §5.2 |
 | F4.14 six invariants | **Done** | Named tests, all failing loudly on regression |
+| F4.15 escalation, never refusal | **Done** | `escalate` is one of exactly two evaluator outcomes |
+| F2.13 guardrail form | **Done** | Nine of twelve settings, screen S15. The other three are F4.11 calendar work and Phase 10 channels. Copy tested against I1 |
 | F5.1 gapless numbering | **Schema** | `allocate_quote_number()` under a row lock; not yet called from application code |
 | F5.2 web quote | **Done** | Screen S26, server-rendered, responsive, print stylesheet |
 | F5.4 §14 UStG content | **Done** | Rendered; not yet reviewed by counsel |
@@ -74,16 +95,18 @@ Everything else in the inventory. Named explicitly rather than left to inference
 - **Phase 2, the rest** — F2.1 bulk upload, F2.2 per-format workers, F2.3 the
   three-quote requirement (counted and explained, but nothing can be uploaded yet),
   F2.4 crawl, F2.5 BrandProfile candidates, F2.7 QuotePattern, F2.10 house voice,
-  F2.13 guardrail form, and screens S10–S15, S18, S19. The confirmation *model*
-  exists; the confirmation *UI* (S13, the hardest screen in the product) does not.
-  Everything still outstanding here needs either object storage or a model call —
-  **F2.13, the guardrail form, is the exception and is the next thing to build.**
+  and screens S10–S14, S18, S19. The confirmation *model* exists; the confirmation
+  *UI* (S13, the hardest screen in the product) does not. **Everything still
+  outstanding here needs either object storage (F0.5) or a model call (F0.11)** —
+  F2.13, the guardrail form, was the last piece that needed neither, and it is done.
 - **Staffelpreise have no UI.** `price_rules` is modelled, migrated and read by the
   engine, and `replacePriceRules` is written — but screen S17 exposes only the single
   unit price. An owner who prices per head in bands cannot express that yet.
 - **Phase 3** the extraction worker itself (types exist, the Claude calls do not).
-- **Phase 4** calendar sync (F4.9–F4.12). `AvailabilityOutcome` is consumed by the
-  engine but nothing populates it yet.
+- **Phase 4** calendar sync (F4.9–F4.12) and the VIES lookup behind F4.5.
+  `AvailabilityOutcome` is consumed by the engine but nothing populates it yet, so
+  **Phase 4 is not complete** — the pricing and guardrail half is, the calendar half
+  is untouched. Screens S23–S25 do not exist.
 - **Phase 5** PDF rendering, tokenised link resolution, accept/decline endpoints,
   quote versioning in application code.
 - **Phase 6** negotiation loop, escalation handling, owner dashboard, handoff.
@@ -124,10 +147,10 @@ Everything else in the inventory. Named explicitly rather than left to inference
 9. **`CHAT_SESSION_SECRET` must be set** or the message endpoint throws. Deliberate —
    a predictable signing key is no key. `.env.local` carries a dev value; production
    needs a real one.
-10. **Signup and login have nowhere to land.** Both redirect to `/onboarding` and
-    `/inbox`, which are Phase 2 and Phase 6 and do not exist — so a successful signup
-    currently ends on a 404. The authentication itself is complete and the cookie is
-    set correctly; what is missing is the destination.
+10. ~~Signup and login have nowhere to land.~~ **Closed 2026-08-09.** `/` is now a
+    router that sends an owner to `/onboarding` or the inbox by her state, and
+    `/onboarding` exists. The inbox is still Phase 6, so a *completed* owner has
+    nowhere to go — but no new signup can reach that state yet.
 11. **No email verification and no password reset.** Both need outbound email
     (Phase 7). Until then an address is trusted as typed, and an owner who forgets her
     password has no self-service route back in. Stated on the signup screen rather

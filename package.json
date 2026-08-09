@@ -16,6 +16,7 @@
     "test:watch": "vitest",
     "test:invariants": "vitest run tests/invariants",
     "test:db": "./db/test.sh",
+    "progress": "node scripts/build-progress.mjs",
     "verify": "npm run typecheck && npm run lint && npm run test"
   },
   "dependencies": {

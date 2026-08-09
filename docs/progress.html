@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Build progress</title>
+<style>
+  :root {
+    --bg: #fbfaf8; --card: #fff; --ink: #1a1a1a; --muted: #6b6b6b; --line: #e5e2dc;
+    --done: #2f7d55; --partial: #c08a2e; --todo: #d4d0c8; --accent: #2f7d55;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16150f; --card: #201f19; --ink: #f2efe8; --muted: #a09c92; --line: #34322a;
+      --done: #57b37f; --partial: #d8a94a; --todo: #3c3a32; --accent: #57b37f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 2.5rem 1.25rem 4rem; background: var(--bg); color: var(--ink);
+    font: 16px/1.55 ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 1.35rem; margin: 0 0 .25rem; letter-spacing: -.01em; }
+  .sub { color: var(--muted); font-size: .85rem; margin: 0 0 2rem; }
+  .total { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 1.5rem; margin-bottom: 2.5rem; }
+  .big { font-size: 3.5rem; font-weight: 650; line-height: 1; letter-spacing: -.03em; }
+  .big span { font-size: 1.5rem; color: var(--muted); font-weight: 400; }
+  .of { color: var(--muted); font-size: .9rem; margin: .5rem 0 1.1rem; }
+  .bar { height: 10px; background: var(--todo); border-radius: 99px; overflow: hidden; }
+  .total .bar { height: 14px; }
+  .fill { height: 100%; background: var(--accent); border-radius: 99px; }
+  .legend { display: flex; gap: 1.1rem; flex-wrap: wrap; margin-top: 1rem; font-size: .82rem; color: var(--muted); }
+  .legend b { color: var(--ink); font-weight: 600; }
+  .phase { margin-bottom: 1.6rem; }
+  .phase-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+  h2 { font-size: .95rem; margin: 0 0 .45rem; font-weight: 600; }
+  .phase-label { color: var(--muted); font-weight: 400; }
+  .phase-pct { font-variant-numeric: tabular-nums; font-size: .85rem; color: var(--muted); }
+  .phase-pct.complete { color: var(--done); font-weight: 600; }
+  .tally { font-size: .78rem; color: var(--muted); margin: .4rem 0 0; }
+  details { margin-top: .35rem; }
+  summary { font-size: .78rem; color: var(--muted); cursor: pointer; }
+  .features { list-style: none; margin: .6rem 0 0; padding: 0; font-size: .82rem; }
+  .f { display: grid; grid-template-columns: 10px auto 1fr; gap: .5rem; align-items: baseline; padding: .18rem 0; }
+  .f em { grid-column: 3; color: var(--muted); font-style: normal; display: block; font-size: .76rem; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--todo); transform: translateY(-1px); }
+  .done .dot { background: var(--done); }
+  .partial .dot { background: var(--partial); }
+  .todo { color: var(--muted); }
+  .note { margin-top: 2.5rem; padding-top: 1.2rem; border-top: 1px solid var(--line); font-size: .78rem; color: var(--muted); }
+  .note code { background: var(--card); padding: .1rem .3rem; border-radius: 4px; }
+  .warn { color: var(--partial); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Build progress</h1>
+  <p class="sub">Quote automation for small event agencies · generated 2026-08-09 08:32</p>
+
+  <div class="total">
+    <div class="big">30<span>%</span></div>
+    <p class="of">46 of 154 features</p>
+    <div class="bar" role="img" aria-label="30 percent of the build complete">
+      <div class="fill" style="width:30%"></div>
+    </div>
+    <div class="legend">
+      <span><b>40</b> done</span>
+      <span><b>12</b> partial</span>
+      <span><b>102</b> to go</span>
+    </div>
+  </div>
+
+
+    <section class="phase">
+      <div class="phase-head">
+        <h2>Cross-cutting <span class="phase-label">adapters, guardrails, audit, i18n, invariants</span></h2>
+        <span class="phase-pct">36%</span>
+      </div>
+      <div class="bar" role="img" aria-label="36 percent">
+        <div class="fill" style="width:36%"></div>
+      </div>
+      <p class="tally">2 done · 1 partial · 7 total</p>
+      <details>
+        <summary>features</summary>
+        <ul class="features">
+          <li class="f todo"><span class="dot"></span><b>X1</b> Channel adapter contract — every channel is one adapter emitting InboundEvent (spec §4.9). No downstream component ever reads a channel-native payload</li>
+          <li class="f done"><span class="dot"></span><b>X2</b> Deterministic guardrail evaluator — runs post-generation on every outbound message and every quote version. Prompt instructions are a first line, never the control<em>17 tests. Two outcomes only</em></li>
+          <li class="f todo"><span class="dot"></span><b>X3</b> Confidence model — per-field {value, confidence, source}; the §4.10 policy table</li>
+          <li class="f todo"><span class="dot"></span><b>X4</b> Audit log — every state transition writes audit_log with actor (system\</li>
+          <li class="f partial"><span class="dot"></span><b>X5</b> i18n DE/EN + Sie/Du — every surface: chat, dashboard, detail form, web quote, PDF, email, Slack<em>Quote document and modifier reasons localised, Sie/Du mirrored. Dashboard and email templates not built</em></li>
+          <li class="f todo"><span class="dot"></span><b>X6</b> Observability — agent_runs (model, tokens in/out, latency, cost_cents) on every model call; error tracking; the spec §17 metric set</li>
+          <li class="f done"><span class="dot"></span><b>X7</b> Invariant test suite as a CI gate — I1–I6 block merge<em>39 tests across I1–I6</em></li>
+        </ul>
+      </details>
+    </section>
+
+    <section class="phase">
+      <div class="phase-head">
+        <h2>Phase 0 <span class="phase-label">Foundation</span></h2>
+        <span class="phase-pct">50%</span>
+      </div>
+      <div class="bar" role="img" aria-label="50 percent">
+        <div class="fill" style="width:50%"></div>
+      </div>
+      <p class="tally">5 done · 3 partial · 13 total</p>
+      <details>
+        <summary>features</summary>
+        <ul class="features">
+          <li class="f partial"><span class="dot"></span><b>F0.1</b> Next.js + TS strict repo, CI (lint, typecheck, test) on every PR<em>Repo and strict TS are done and npm run verify is the gate locally. No .github/workflows exists, so nothing blocks a merge yet</em></li>
+          <li class="f partial"><span class="dot"></span><b>F0.2</b> Postgres instance, EU — plus S3-compatible object storage and pgvector. Auth is ours (D29)<em>A real local PostgreSQL 18 with migrations and RLS. Not hosted, not EU-verified, no pgvector confirmed, no object storage</em></li>
+          <li class="f done"><span class="dot"></span><b>F0.3</b> Full schema migration — every table in spec §10, plus the five named indexes<em>33 tables, indexes, enums</em></li>
+          <li class="f done"><span class="dot"></span><b>F0.4</b> RLS on every tenant table, keyed on agency_id via agency_members<em>Generated from a list plus a migration-time coverage assertion</em></li>
+          <li class="f todo"><span class="dot"></span><b>F0.5</b> Storage bucket policies, tenant-prefixed paths tenant/{agency_id}/…<em>The blocker for most of the rest of Phase 2</em></li>
+          <li class="f done"><span class="dot"></span><b>F0.6</b> Owner auth — signup, email verification, login, password reset, session<em>scrypt hashing, DB-backed revocable sessions, signup/login/logout endpoints, screens S1–S2. 56 tests + 20 DB assertions</em></li>
+          <li class="f done"><span class="dot"></span><b>F0.7</b> Tenant bootstrap — create agency, owner agency_members row, reserve unique slug<em>One atomic function writes user + agency + owner membership + slug. Collision returns suggestions, never an error page</em></li>
+          <li class="f done"><span class="dot"></span><b>F0.8</b> Tenancy test harness — cross-tenant read and write attempts, per table<em>npm run test:db — 8 assertions, executed against real Postgres. Isolation verified in both directions</em></li>
+          <li class="f partial"><span class="dot"></span><b>F0.9</b> audit_log write helper + actor resolution (X4)<em>The database trigger writes on every inquiry transition and is asserted (X4). No application-side helper or actor resolution yet</em></li>
+          <li class="f todo"><span class="dot"></span><b>F0.10</b> Vercel project, environments, preview deploys, custom domain wiring<em>No vercel.json, no deploy configured</em></li>
+          <li class="f todo"><span class="dot"></span><b>F0.11</b> Anthropic client wrapper — DPA-covered, zero-retention where available, agent_runs logging<em>No model call exists anywhere in the product yet. Everything shipped so far is deterministic</em></li>
+          <li class="f todo"><span class="dot"></span><b>F0.12</b> Config/feature-flag table for phase gating<em>Needed to ship Phases 10–12 dark</em></li>
+          <li class="f todo"><span class="dot"></span><b>F0.13</b> External track kickoff (non-code, day 1) — Anthropic DPA, Stripe account + test mode, Cloudflare domain, Meta business verification, Google Cloud project + CASA quote, counsel briefed on §8.3 / withdrawal rights / AGB<em>Non-code, day-1 item (§5). DPA, Stripe, Cloudflare, Meta, Google, counsel</em></li>
+        </ul>
+      </details>
+    </section>
+
+    <section class="phase">
+      <div class="phase-head">
+        <h2>Phase 1 <span class="phase-label">Envelope + hosted chat</span></h2>
+        <span class="phase-pct">90%</span>
+      </div>
+      <div class="bar" role="img" aria-label="90 percent">
+        <div class="fill" style="width:90%"></div>
+      </div>
+      <p class="tally">12 done · 3 partial · 15 total</p>
+      <details>
+        <summary>features</summary>
+        <ul class="features">
+          <li class="f done"><span class="dot"></span><b>F1.1</b> InboundEvent envelope — type + runtime schema, idempotent on idempotency_key<em>Type + zod schema + idempotency. 11 tests</em></li>
+          <li class="f done"><span class="dot"></span><b>F1.2</b> Adapter interface + registry (X1)<em>Pure payload → InboundEvent; contract violations throw. 16 tests</em></li>
+          <li class="f done"><span class="dot"></span><b>F1.3</b> hosted_chat adapter<em>Client clock distrusted; tenant never from payload</em></li>
+          <li class="f done"><span class="dot"></span><b>F1.4</b> Public route /a/{slug} — server resolves slug → agency_id, never accepts agency_id from the client. Branded with agency logo/colours<em>Slug resolved server-side; neutral 404, no tenant enumeration</em></li>
+          <li class="f partial"><span class="dot"></span><b>F1.5</b> Session — signed HTTP-only cookie + resumable link token, chat_sessions row<em>Token mint/hash/sign/verify done and tested. No chat_sessions row — needs the database</em></li>
+          <li class="f partial"><span class="dot"></span><b>F1.6</b> Message endpoint, rate-limited per IP and per session<em>Throttle-never-refuse, tunable, logged. Process-local map; needs a shared store for &gt;1 instance</em></li>
+          <li class="f done"><span class="dot"></span><b>F1.7</b> Streaming responses (SSE) + typing indicator<em>Frame-safe client parser; typing indicator; no blank wait state</em></li>
+          <li class="f done"><span class="dot"></span><b>F1.8</b> AI disclosure (D25, I6) — first assistant turn, persistent chat-header label, disclosure text versioned and stored with the conversation<em>First turn + persistent header label. Versioned; storing the record needs the database</em></li>
+          <li class="f done"><span class="dot"></span><b>F1.9</b> Instant ack — under 10s p95, decoupled from extraction<em>Ordering enforced by AckPlan, asserted by test</em></li>
+          <li class="f partial"><span class="dot"></span><b>F1.10</b> Uploads — signed URL to Storage, MIME by content sniffing, 25 MB/file, 10/inquiry, malware scan, processing gated on scan_status = clean<em>Sniffing, limits and the scan gate done and tested. No signed URLs, no storage, no scanner</em></li>
+          <li class="f done"><span class="dot"></span><b>F1.11</b> Abuse controls — honeypot + timing checks (no CAPTCHA), per-agency daily cap with owner alert, spam classifier routes to a tray<em>Honeypot, timing, cap, spam → tray. No CAPTCHA. 14 tests</em></li>
+          <li class="f done"><span class="dot"></span><b>F1.12</b> Zero third-party scripts on customer surfaces, essential session cookie only<em>Enforced by CSP in next.config.ts</em></li>
+          <li class="f done"><span class="dot"></span><b>F1.13</b> Art. 13 privacy link in the first turn and the footer<em>First turn and footer, both languages</em></li>
+          <li class="f done"><span class="dot"></span><b>F1.14</b> &quot;mit {Owner} sprechen&quot; persistent control (I5) — pauses automation immediately, writes human_interventions, notifies owner<em>Aborts the in-flight stream first, then records. Never disabled mid-conversation</em></li>
+          <li class="f done"><span class="dot"></span><b>F1.15</b> Language + formality detection, DE/EN mirroring, Sie/Du<em>Case-sensitive Sie detection; agency override wins. 16 tests</em></li>
+        </ul>
+      </details>
+    </section>
+
+    <section class="phase">
+      <div class="phase-head">
+        <h2>Phase 2 <span class="phase-label">Onboarding + catalogue</span></h2>
+        <span class="phase-pct">42%</span>
+      </div>
+      <div class="bar" role="img" aria-label="42 percent">
+        <div class="fill" style="width:42%"></div>
+      </div>
+      <p class="tally">5 done · 1 partial · 13 total</p>
+      <details>
+        <summary>features</summary>
+        <ul class="features">
+          <li class="f todo"><span class="dot"></span><b>F2.1</b> Bulk folder drag-and-drop — 50 files / 200 MB per tenant, per-file progress, onboarding_assets rows</li>
+          <li class="f todo"><span class="dot"></span><b>F2.2</b> Per-format processing workers — PDF (text layer, OCR fallback), DOCX, XLSX/CSV, images, Canva export</li>
+          <li class="f todo"><span class="dot"></span><b>F2.3</b> Mandatory ≥3 past quotes (D4)</li>
+          <li class="f todo"><span class="dot"></span><b>F2.4</b> Website crawl — owner-supplied URL, same registrable domain, ≤40 pages, depth 3, robots.txt, 10s/page, priority paths (/leistungen, /preise, /pakete, …)</li>
+          <li class="f todo"><span class="dot"></span><b>F2.5</b> BrandProfile candidate — logo, primary/secondary colour, font guess, letterhead layout, footer/legal block, house-voice sample</li>
+          <li class="f partial"><span class="dot"></span><b>F2.6</b> ServiceCatalogue candidates — catalog_items with name, description, unit, unit price, VAT rate, and frequency score across uploaded quotes<em>Candidate model + frequency score. No extraction worker produces them yet</em></li>
+          <li class="f todo"><span class="dot"></span><b>F2.7</b> QuotePattern candidate — section order, intro/outro text, terms wording, validity period, payment terms</li>
+          <li class="f done"><span class="dot"></span><b>F2.8</b> Confirmation UI — confirm / edit / reject per object, with source reference (asset + page + text span) shown inline. Rejections retained as negative signal<em>Guaranteed in three places: type, DB constraint, test. 17 tests</em></li>
+          <li class="f done"><span class="dot"></span><b>F2.9</b> Catalogue CRUD — items, price_rules (Staffel bands), packages, package_items, modifiers, floors<em>Create, edit, retire. German money parsing. Screens S16/S17. 26 tests</em></li>
+          <li class="f todo"><span class="dot"></span><b>F2.10</b> House voice — short style descriptor + 3–5 verbatim excerpts as bounded few-shot</li>
+          <li class="f done"><span class="dot"></span><b>F2.11</b> Manual-catalogue fallback path (closes spec open question #5) — when extraction is poor or the three quotes are inconsistent, a guided manual route with sensible event-industry defaults<em>The whole catalogue is buildable by hand, so poor extraction never blocks onboarding (closes open question #5)</em></li>
+          <li class="f done"><span class="dot"></span><b>F2.12</b> Onboarding progress meter against the exit criterion — ≥5 confirmed items, ≥1 price rule each, brand confirmed, guardrails set<em>Screen S9. Renders real state; blocked steps are neither done nor actionable</em></li>
+          <li class="f done"><span class="dot"></span><b>F2.13</b> Guardrail configuration form (spec §6, all 12 settings)<em>Nine of twelve settings, screen S15. The other three are F4.11 calendar work and Phase 10 channels. Copy tested against I1</em></li>
+        </ul>
+      </details>
+    </section>
+
+    <section class="phase">
+      <div class="phase-head">
+        <h2>Phase 3 <span class="phase-label">Extraction → EventBrief</span></h2>
+        <span class="phase-pct">17%</span>
+      </div>
+      <div class="bar" role="img" aria-label="17 percent">
+        <div class="fill" style="width:17%"></div>
+      </div>
+      <p class="tally">2 done · 12 total</p>
+      <details>
+        <summary>features</summary>
+        <ul class="features">
+          <li class="f done"><span class="dot"></span><b>F3.1</b> EventBrief schema — per-field {value, confidence, source} per spec §4.10<em>Types and confidence policy. Extraction worker not built</em></li>
+          <li class="f todo"><span class="dot"></span><b>F3.2</b> _contact partition (I2, D24) — a structurally separate type, not a convention</li>
+          <li class="f todo"><span class="dot"></span><b>F3.3</b> Extraction worker — text, vision (images/screenshots/mood boards/competitor quotes/handwritten), documents</li>
+          <li class="f todo"><span class="dot"></span><b>F3.4</b> Chat transcript parser → speaker turns (WhatsApp exports)</li>
+          <li class="f todo"><span class="dot"></span><b>F3.5</b> extractions rows — field_path, value, confidence, source(ai\</li>
+          <li class="f done"><span class="dot"></span><b>F3.6</b> Confidence policy engine — the spec §4.10 decision table<em>evaluateConfidence() implements the §4.10 table</em></li>
+          <li class="f todo"><span class="dot"></span><b>F3.7</b> Gap check — required fields by event type, configurable per agency</li>
+          <li class="f todo"><span class="dot"></span><b>F3.8</b> In-chat qualifying questions with quick-reply chips</li>
+          <li class="f todo"><span class="dot"></span><b>F3.9</b> Detail form /f/{token} — fields generated from gaps, autosave per field, partial submissions ingested, source='form', confidence 1.0</li>
+          <li class="f todo"><span class="dot"></span><b>F3.10</b> Conflict handling — latest customer statement wins; the conflict is shown in the timeline, not silently resolved</li>
+          <li class="f todo"><span class="dot"></span><b>F3.11</b> Prompt-injection boundary (spec §12.4) — customer content in delimited labelled blocks; injection_suspected → escalate, never comply</li>
+          <li class="f todo"><span class="dot"></span><b>F3.12</b> Voice notes — stored, flagged, not transcribed; inquiry routes to owner</li>
+        </ul>
+      </details>
+    </section>
+
+    <section class="phase">
+      <div class="phase-head">
+        <h2>Phase 4 <span class="phase-label">Pricing, calendar, guardrails, invariant tests</span></h2>
+        <span class="phase-pct">80%</span>
+      </div>
+      <div class="bar" role="img" aria-label="80 percent">
+        <div class="fill" style="width:80%"></div>
+      </div>
+      <p class="tally">10 done · 4 partial · 15 total</p>
+      <details>
+        <summary>features</summary>
+        <ul class="features">
+          <li class="f done"><span class="dot"></span><b>F4.1</b> PricingInput type + pure pricing function — event attributes only, no I/O, no model call<em>No I/O, no model call, no personal field. Purity asserted by test</em></li>
+          <li class="f done"><span class="dot"></span><b>F4.2</b> Calculation order 1–9 exactly as spec §7.3, full calculation_trace stored per version<em>Spec §7.3 order 1–9; every figure reconstructible from the trace</em></li>
+          <li class="f done"><span class="dot"></span><b>F4.3</b> Tiered price_rules resolution (Staffelpreise)<em>Band boundaries tested at the edges</em></li>
+          <li class="f done"><span class="dot"></span><b>F4.4</b> Modifiers — ordered, each +% or +fixed, each recorded individually<em>Ordered, each recorded individually in the trace</em></li>
+          <li class="f partial"><span class="dot"></span><b>F4.5</b> VAT per line — 19% / 7% / 0% reverse charge for EU B2B with a valid VAT ID (VIES check)<em>19% / 7% / 0% split works and is tested. reverseCharge is an input flag — the VIES lookup that should set it is not built</em></li>
+          <li class="f done"><span class="dot"></span><b>F4.6</b> Rounding — half-up 2dp at line level, totals summed from rounded lines<em>Half-up 2dp at line level, totals summed from rounded lines</em></li>
+          <li class="f done"><span class="dot"></span><b>F4.7</b> Budget handling — over budget with allow_scope_reduction produces a reduced-scope variant from catalogue items only, presented alongside the full variant<em>Reduced-scope variant from catalogue items only. Never discounts, never declines</em></li>
+          <li class="f done"><span class="dot"></span><b>F4.8</b> Golden-set fixture tests from real historical quotes<em>Reproduces to the cent</em></li>
+          <li class="f todo"><span class="dot"></span><b>F4.9</b> Calendar sync — Google Calendar + Microsoft Graph, read-only, incremental (sync tokens/delta links), webhook-refreshed or 15-min poll<em>No Google/Graph client exists</em></li>
+          <li class="f partial"><span class="dot"></span><b>F4.10</b> Calendar connect flow, and full function with no calendar connected<em>The &quot;works fully with no calendar connected&quot; half is true and is the current state. No connect flow</em></li>
+          <li class="f partial"><span class="dot"></span><b>F4.11</b> capacity_rules, blackout_dates, peak ranges, minimum lead time<em>All four modelled with defaults; lead time and capacity are owner-editable on S15. blackoutDates and peakSeasonRanges have no UI</em></li>
+          <li class="f partial"><span class="dot"></span><b>F4.12</b> AvailabilityOutcome — available \<em>Type exists and the evaluator consumes it correctly (none of the three auto-declines). Nothing computes it — it arrives as an input</em></li>
+          <li class="f done"><span class="dot"></span><b>F4.13</b> Guardrail evaluator (X2) — floors, min_order_value, max_auto_quote_value, no invented services, no discounts, no committing to conflicted dates, no accepting the customer's price framing, nothing after opt_out_at<em>All rules from spec §5.2</em></li>
+          <li class="f done"><span class="dot"></span><b>F4.14</b> The six invariant tests (X7) — see §8<em>Named tests, all failing loudly on regression</em></li>
+          <li class="f done"><span class="dot"></span><b>F4.15</b> Escalation on any case that would otherwise be a refusal<em>escalate is one of exactly two evaluator outcomes</em></li>
+        </ul>
+      </details>
+    </section>
+
+    <section class="phase">
+      <div class="phase-head">
+        <h2>Phase 5 <span class="phase-label">The quote document</span></h2>
+        <span class="phase-pct">36%</span>
+      </div>
+      <div class="bar" role="img" aria-label="36 percent">
+        <div class="fill" style="width:36%"></div>
+      </div>
+      <p class="tally">4 done · 11 total</p>
+      <details>
+        <summary>features</summary>
+        <ul class="features">
+          <li class="f todo"><span class="dot"></span><b>F5.1</b> quotes + immutable quote_versions; gapless quote number per tenant</li>
+          <li class="f done"><span class="dot"></span><b>F5.2</b> Web quote /q/{token} — the primary artefact. Responsive, branded from BrandProfile, mobile-first<em>Screen S26, server-rendered, responsive, print stylesheet</em></li>
+          <li class="f todo"><span class="dot"></span><b>F5.3</b> PDF — server-rendered from the same data, content-identical to the web quote</li>
+          <li class="f done"><span class="dot"></span><b>F5.4</b> §14 UStG required content — legal name, address, contact, USt-IdNr./Steuernummer, quote number, issue date, validity date, customer details, itemised lines, VAT breakdown per rate, gross total, payment terms, cancellation terms, AGB reference or attachment<em>Rendered; not yet reviewed by counsel</em></li>
+          <li class="f done"><span class="dot"></span><b>F5.5</b> Spec §8.3 legal framing, non-removable (I3) — *freibleibend* paragraph + AI-prepared paragraph + route to a human<em>Non-removable, DE + EN</em></li>
+          <li class="f done"><span class="dot"></span><b>F5.6</b> Art. 50(2) synthetic-content marking — machine-readable AI-generated metadata in PDF and web quote<em>JSON-LD on the quote page</em></li>
+          <li class="f todo"><span class="dot"></span><b>F5.7</b> Tokenised links — 128-bit, single-inquiry scoped, expire with quote validity, revocable</li>
+          <li class="f todo"><span class="dot"></span><b>F5.8</b> accept / decline / comment / request-human endpoints</li>
+          <li class="f todo"><span class="dot"></span><b>F5.9</b> quote_events — sent, delivered, viewed, accepted, declined, commented, expired; ip_hash + user_agent_hash only</li>
+          <li class="f todo"><span class="dot"></span><b>F5.10</b> Versioning — each negotiation round is a new immutable version; prior versions reachable at their own token; newest supersedes; acceptance references a specific version id</li>
+          <li class="f todo"><span class="dot"></span><b>F5.11</b> AGB attachment or reference, per agency; graceful path for agencies that have none</li>
+        </ul>
+      </details>
+    </section>
+
+    <section class="phase">
+      <div class="phase-head">
+        <h2>Phase 6 <span class="phase-label">Negotiation loop, dashboard, handoff</span></h2>
+        <span class="phase-pct">0%</span>
+      </div>
+      <div class="bar" role="img" aria-label="0 percent">
+        <div class="fill" style="width:0%"></div>
+      </div>
+      <p class="tally">0 done · 15 total</p>
+      <details>
+        <summary>features</summary>
+        <ul class="features">
+          <li class="f todo"><span class="dot"></span><b>F6.1</b> Negotiation loop — change request → re-extract → re-price → new version</li>
+          <li class="f todo"><span class="dot"></span><b>F6.2</b> max_negotiation_rounds (default 4) → escalate</li>
+          <li class="f todo"><span class="dot"></span><b>F6.3</b> Agent turn constraints — ≤600 characters, max 2 consecutive turns then wait, emojis only if the agency's own material uses them</li>
+          <li class="f todo"><span class="dot"></span><b>F6.4</b> Full escalation trigger set (spec §5.3) — human requested, frustration/complaint/cancellation intent, corporate RFP, total &gt; max_auto_quote_value, rounds exceeded, any legal/contractual/insurance/liability question, suspected injection, any case that would otherwise be a refusal</li>
+          <li class="f todo"><span class="dot"></span><b>F6.5</b> Escalation handling — message withheld, state escalated, owner notified in-app + push, neutral holding message to the customer</li>
+          <li class="f todo"><span class="dot"></span><b>F6.6</b> Inbox — inquiries by state, SLA timer per row, overdue in red</li>
+          <li class="f todo"><span class="dot"></span><b>F6.7</b> &quot;Needs you&quot; — escalations, low-confidence extractions, accepted quotes awaiting confirmation. Default landing view</li>
+          <li class="f todo"><span class="dot"></span><b>F6.8</b> Inquiry detail — full timeline (every message, extraction, quote version, guardrail check), EventBrief with source references, calendar status</li>
+          <li class="f todo"><span class="dot"></span><b>F6.9</b> Owner takeover / manual reply on the origin channel</li>
+          <li class="f todo"><span class="dot"></span><b>F6.10</b> Handoff card (spec §9.2) — customer contact, full EventBrief, accepted version with calculation trace, entire transcript, calendar status, customer comments</li>
+          <li class="f todo"><span class="dot"></span><b>F6.11</b> „Buchung bestätigen&quot; → confirmation sent on origin channel, calendar event created (write scope requested here, separately), state confirmed</li>
+          <li class="f todo"><span class="dot"></span><b>F6.12</b> Human decline path — the only decline endpoint, authenticated agency user (I1)</li>
+          <li class="f todo"><span class="dot"></span><b>F6.13</b> Owner-side renegotiation → manual quote version</li>
+          <li class="f todo"><span class="dot"></span><b>F6.14</b> Web push for escalations and accepted quotes</li>
+          <li class="f todo"><span class="dot"></span><b>F6.15</b> Teammates — invite, roles owner/member; members excluded from billing, channel connections and guardrail config</li>
+        </ul>
+      </details>
+    </section>
+
+    <section class="phase">
+      <div class="phase-head">
+        <h2>Phase 7 <span class="phase-label">Email + paste-in channels</span></h2>
+        <span class="phase-pct">0%</span>
+      </div>
+      <div class="bar" role="img" aria-label="0 percent">
+        <div class="fill" style="width:0%"></div>
+      </div>
+      <p class="tally">0 done · 15 total</p>
+      <details>
+        <summary>features</summary>
+        <ul class="features">
+          <li class="f todo"><span class="dot"></span><b>F7.1</b> Alias provisioning — anfragen-{slug}@in.{DOMAIN}, unique per tenant</li>
+          <li class="f todo"><span class="dot"></span><b>F7.2</b> Cloudflare Email Routing → Email Worker → /api/webhooks/email-in</li>
+          <li class="f todo"><span class="dot"></span><b>F7.3</b> MIME parse — headers, text/plain preferred, sanitised HTML fallback, attachments extracted, thread identity from Message-ID/In-Reply-To/References</li>
+          <li class="f todo"><span class="dot"></span><b>F7.4</b> Email adapter → InboundEvent (X1)</li>
+          <li class="f todo"><span class="dot"></span><b>F7.5</b> Inquiry filter — drop newsletters (List-Unsubscribe, Precedence: bulk), no-reply senders, internal threads; unclear cases → &quot;possible inquiry&quot; tray</li>
+          <li class="f todo"><span class="dot"></span><b>F7.6</b> Outbound default — {slug}@mail.{DOMAIN}, From display name = agency, Reply-To = agency's real address</li>
+          <li class="f todo"><span class="dot"></span><b>F7.7</b> Own-domain upgrade wizard — DKIM CNAME + SPF include, copy-paste records, live verification polling</li>
+          <li class="f todo"><span class="dot"></span><b>F7.8</b> DMARC alignment, dedicated sending subdomain, gradual warm-up</li>
+          <li class="f todo"><span class="dot"></span><b>F7.9</b> Bounce/complaint webhooks → delivery_failed surfaced to the owner</li>
+          <li class="f todo"><span class="dot"></span><b>F7.10</b> Follow-up engine — nudge 1 at 48h unopened, nudge 2 at 5d opened-no-response, expiry notice 2 days before, then an owner task. Cancelled immediately on reply. Hard cap 3 automated messages. All outbound blocked after opt_out_at</li>
+          <li class="f todo"><span class="dot"></span><b>F7.11</b> SLA timers + overdue surfacing; the ack's &quot;within X hours&quot; is owner-configured (closes spec open question #8)</li>
+          <li class="f todo"><span class="dot"></span><b>F7.12</b> Forwarding-rule setup guides per provider — Gmail, Outlook, IONOS, Strato, GMX</li>
+          <li class="f todo"><span class="dot"></span><b>F7.13</b> Paste-in intake (POST /api/inquiries/paste) — owner pastes a WhatsApp export or any text into the dashboard; parsed into speaker turns via F3.4</li>
+          <li class="f todo"><span class="dot"></span><b>F7.14</b> PWA Share Target (Android) — the app registers as a Web Share Target, so the owner uses WhatsApp's native *Share* on a chat and picks {BRAND}</li>
+          <li class="f todo"><span class="dot"></span><b>F7.15</b> Reply routing for pasted inquiries — the reply goes back via a hosted chat link or email, sent by the owner in one tap (wa.me deep link with the prefilled chat URL)</li>
+        </ul>
+      </details>
+    </section>
+
+    <section class="phase">
+      <div class="phase-head">
+        <h2>Phase 8 <span class="phase-label">Billing</span></h2>
+        <span class="phase-pct">0%</span>
+      </div>
+      <div class="bar" role="img" aria-label="0 percent">
+        <div class="fill" style="width:0%"></div>
+      </div>
+      <p class="tally">0 done · 8 total</p>
+      <details>
+        <summary>features</summary>
+        <ul class="features">
+          <li class="f todo"><span class="dot"></span><b>F8.1</b> Stripe subscription — Starter / Pro tiers by quote volume, test mode from minute one</li>
+          <li class="f todo"><span class="dot"></span><b>F8.2</b> Paywall from day one (D26)</li>
+          <li class="f todo"><span class="dot"></span><b>F8.3</b> Quota tracking — quota_quotes_month, quotes_used_period, enforcement worker</li>
+          <li class="f todo"><span class="dot"></span><b>F8.4</b> Quota-reached behaviour — inquiries continue to arrive and be acknowledged; the *quote send* is held and escalated to the owner with an upgrade prompt</li>
+          <li class="f todo"><span class="dot"></span><b>F8.5</b> Stripe customer portal (/api/billing/portal)</li>
+          <li class="f todo"><span class="dot"></span><b>F8.6</b> /api/webhooks/stripe — subscription lifecycle, dunning, downgrade behaviour</li>
+          <li class="f todo"><span class="dot"></span><b>F8.7</b> VAT handling — Stripe + B2B reverse charge for a DACH launch (closes spec open question #9; Paddle/Lemon Squeezy rejected as adding a review step)</li>
+          <li class="f todo"><span class="dot"></span><b>F8.8</b> Unit-economics view from agent_runs + storage + email cost, per inquiry and per tenant</li>
+        </ul>
+      </details>
+    </section>
+
+    <section class="phase">
+      <div class="phase-head">
+        <h2>Phase 9 <span class="phase-label">GDPR surfaces + pilot</span></h2>
+        <span class="phase-pct">0%</span>
+      </div>
+      <div class="bar" role="img" aria-label="0 percent">
+        <div class="fill" style="width:0%"></div>
+      </div>
+      <p class="tally">0 done · 10 total</p>
+      <details>
+        <summary>features</summary>
+        <ul class="features">
+          <li class="f todo"><span class="dot"></span><b>F9.1</b> Per-contact data export, owner-operable without us</li>
+          <li class="f todo"><span class="dot"></span><b>F9.2</b> Per-contact deletion within 30 days, with audit trail</li>
+          <li class="f todo"><span class="dot"></span><b>F9.3</b> Retention jobs — raw payloads 30 days, inquiry data default 24 months post-closure, agency-configurable</li>
+          <li class="f todo"><span class="dot"></span><b>F9.4</b> Art. 28 DPA at signup + named sub-processor list (Postgres host EU, object storage EU, Anthropic, Cloudflare, Stripe)</li>
+          <li class="f todo"><span class="dot"></span><b>F9.5</b> Per-agency privacy notice hosting + link injection into chat, quote and email</li>
+          <li class="f todo"><span class="dot"></span><b>F9.6</b> Art. 22 assessment, written from live code facts and citing I1–I6 with file references</li>
+          <li class="f todo"><span class="dot"></span><b>F9.7</b> DPIA threshold screening, documented</li>
+          <li class="f todo"><span class="dot"></span><b>F9.8</b> opt_out_at handling end to end — chat, email, follow-ups</li>
+          <li class="f todo"><span class="dot"></span><b>F9.9</b> Metrics instrumentation for the full spec §17 set, including chat link → completed inquiry</li>
+          <li class="f todo"><span class="dot"></span><b>F9.10</b> Pilot runbook — 3 design partners, onboarding support, feedback loop</li>
+        </ul>
+      </details>
+    </section>
+
+    <section class="phase">
+      <div class="phase-head">
+        <h2>Phase 10–12 <span class="phase-label">Committed roadmap channels</span></h2>
+        <span class="phase-pct">0%</span>
+      </div>
+      <div class="bar" role="img" aria-label="0 percent">
+        <div class="fill" style="width:0%"></div>
+      </div>
+      <p class="tally">0 done · 20 total</p>
+      <details>
+        <summary>features</summary>
+        <ul class="features">
+          <li class="f todo"><span class="dot"></span><b>F10.1</b> &quot;Add to Slack&quot; OAuth, single-workspace install. Scopes chat:write, commands, users:read — no message-reading scopes</li>
+          <li class="f todo"><span class="dot"></span><b>F10.2</b> Slack identity → agency user mapping</li>
+          <li class="f todo"><span class="dot"></span><b>F10.3</b> Escalation alerts — customer message + EventBrief + reason</li>
+          <li class="f todo"><span class="dot"></span><b>F10.4</b> Block Kit one-tap — Approve send · Confirm booking · Take over, hitting the same authenticated endpoints as the dashboard</li>
+          <li class="f todo"><span class="dot"></span><b>F10.5</b> Team channel — new inquiries and accepted quotes posted</li>
+          <li class="f todo"><span class="dot"></span><b>F10.6</b> Daily digest — overdue SLA items each morning</li>
+          <li class="f todo"><span class="dot"></span><b>F10.7</b> Settings + disconnect, token revocation</li>
+          <li class="f todo"><span class="dot"></span><b>F11.1</b> OAuth gmail.readonly/modify + gmail.send, testing mode (≤100 users, 7-day refresh-token expiry)</li>
+          <li class="f todo"><span class="dot"></span><b>F11.2</b> Alias stays live underneath for every OAuth tenant — non-negotiable</li>
+          <li class="f todo"><span class="dot"></span><b>F11.3</b> Duplicate suppression on Message-ID</li>
+          <li class="f todo"><span class="dot"></span><b>F11.4</b> Token expiry handling — notify at 24h before and again on expiry, one-tap reconnect; channel degrades to the alias, never goes dark</li>
+          <li class="f todo"><span class="dot"></span><b>F11.5</b> Native thread preservation</li>
+          <li class="f todo"><span class="dot"></span><b>F11.6</b> Annual CASA re-assessment as a recurring system reminder</li>
+          <li class="f todo"><span class="dot"></span><b>F12.1</b> Embedded Signup v4 (v2 deprecated 15 Oct 2026)</li>
+          <li class="f todo"><span class="dot"></span><b>F12.2</b> whatsapp adapter → InboundEvent</li>
+          <li class="f todo"><span class="dot"></span><b>F12.3</b> Six utility templates DE + EN — inquiry_ack, quote_ready, quote_reminder_1, quote_reminder_2, quote_expiring, owner_handover</li>
+          <li class="f todo"><span class="dot"></span><b>F12.4</b> 24-hour window logic + template fallback outside it</li>
+          <li class="f todo"><span class="dot"></span><b>F12.5</b> Opt-in evidence capture</li>
+          <li class="f todo"><span class="dot"></span><b>F12.6</b> X-Hub-Signature-256 verification, idempotency on message.id</li>
+          <li class="f todo"><span class="dot"></span><b>F12.7</b> Media fetched immediately (URLs expire)</li>
+        </ul>
+      </details>
+    </section>
+
+  <p class="note">
+    Counted from <code>FEATURE_INVENTORY.md</code> (the denominator) against
+    <code>BUILD_STATUS.md</code> (what exists). Partial counts as half; a feature nobody
+    has written down as built counts as zero. Regenerate with <code>npm run progress</code>.
+    
+  </p>
+</div>
+</body>
+</html>
