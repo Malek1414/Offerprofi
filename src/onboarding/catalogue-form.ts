@@ -71,9 +71,17 @@ export function parseEuroAmount(input: string): Cents | null {
   return cents(asCents)
 }
 
-/** Format cents back into the field, so a saved value round-trips as she typed it. */
+/**
+ * Format cents back into the field, so a saved value round-trips as she typed it.
+ *
+ * With the thousands separator, because the field next to it carries a placeholder of
+ * `5.000,00` and rendering the saved value as `5000,00` makes the two look like
+ * different kinds of number. `parseEuroAmount` reads it back unchanged.
+ */
 export function formatEuroInput(value: Cents): string {
-  return (value / 100).toFixed(2).replace('.', ',')
+  const [whole = '0', fraction = '00'] = (value / 100).toFixed(2).split('.')
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  return `${grouped},${fraction}`
 }
 
 export interface CatalogueItemForm {

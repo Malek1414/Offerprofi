@@ -69,10 +69,20 @@ describe('F2.9 — parsing an amount as a German keyboard produces it', () => {
   })
 
   it('round-trips through the field', () => {
-    for (const value of [0, 99, 7850, 245000, 123456]) {
+    for (const value of [0, 99, 7850, 245000, 123456, 100000000]) {
       const formatted = formatEuroInput(cents(value))
       expect(parseEuroAmount(formatted), `${value} → "${formatted}"`).toBe(value)
     }
+  })
+
+  it('groups thousands, so a saved value matches the placeholder beside it', () => {
+    // Rendering €5,000 as "5000,00" next to a placeholder reading "5.000,00" makes
+    // the two look like different kinds of number.
+    expect(formatEuroInput(cents(500000))).toBe('5.000,00')
+    expect(formatEuroInput(cents(123456))).toBe('1.234,56')
+    expect(formatEuroInput(cents(100000000))).toBe('1.000.000,00')
+    expect(formatEuroInput(cents(7850))).toBe('78,50')
+    expect(formatEuroInput(cents(0))).toBe('0,00')
   })
 
   it('rounds half-up at the boundary, matching the engine', () => {

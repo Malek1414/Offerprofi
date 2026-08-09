@@ -1,0 +1,243 @@
+/*
+ * S15 — guardrails (F2.13).
+ *
+ * The acceptance criterion is a stopwatch: fillable in under three minutes by a
+ * non-technical owner. That is fifteen seconds per setting, which is not a budget you
+ * meet by making twelve inputs look nice — you meet it by making eleven of them
+ * skippable and one of them obvious.
+ *
+ * So the layout is a single column of statements with their controls on the right,
+ * reading top to bottom like a list of decisions rather than a settings panel. Each
+ * one already has a working answer. An owner who scrolls and presses save has
+ * configured her business correctly.
+ */
+
+.page {
+  min-height: 100dvh;
+  background: var(--paper-sunk);
+  padding: clamp(1.25rem, 5vw, 3rem) 1.25rem 5rem;
+}
+
+.shell {
+  max-width: 44rem;
+  margin: 0 auto;
+}
+
+.back {
+  display: inline-block;
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+  margin-bottom: 1.25rem;
+}
+
+.back:hover {
+  color: var(--ink);
+}
+
+.title {
+  font-family: var(--display);
+  font-size: var(--step-3);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.5rem;
+}
+
+.lede {
+  color: var(--ink-soft);
+  line-height: 1.55;
+  max-width: var(--measure);
+  margin: 0 0 1.25rem;
+}
+
+/*
+ * The reassurance that makes the form fast.
+ *
+ * An owner who does not know whether she is allowed to skip a field will read all
+ * twelve. Telling her the defaults already work is what buys the three minutes.
+ */
+.reassure {
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--ink-mute);
+  border-radius: var(--radius);
+  padding: 0.8rem 1rem;
+  line-height: 1.55;
+  margin-bottom: 2rem;
+}
+
+.group {
+  margin-bottom: 2rem;
+}
+
+.groupTitle {
+  font-size: var(--step--1);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin: 0 0 0.75rem;
+}
+
+.settings {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.setting {
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1rem 1.15rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.35rem 1.25rem;
+  align-items: start;
+}
+
+.settingLabel {
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.settingHelp {
+  grid-column: 1;
+  font-size: var(--step--1);
+  line-height: 1.5;
+  color: var(--ink-mute);
+  margin: 0;
+  max-width: var(--measure);
+}
+
+.control {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  align-self: center;
+}
+
+/* Numeric and money inputs sit at a fixed width so the column of controls lines up
+ * down the page — a ragged right edge makes the form look longer than it is. */
+.number,
+.money {
+  width: 8.5rem;
+  box-sizing: border-box;
+  font-size: max(1rem, var(--step-0));
+  font-family: var(--body);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.7rem;
+}
+
+.suffix {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+  white-space: nowrap;
+}
+
+.number:focus-visible,
+.money:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+  border-color: var(--ink);
+}
+
+.number[aria-invalid='true'],
+.money[aria-invalid='true'] {
+  border-color: var(--warn-ink);
+}
+
+/*
+ * A real checkbox, scaled up.
+ *
+ * A custom switch would need its own focus ring, its own keyboard handling and its
+ * own screen-reader semantics, all of which the native control already has correct.
+ * `accent-color` gets the appearance for one line.
+ */
+.checkbox {
+  width: 1.35rem;
+  height: 1.35rem;
+  accent-color: var(--ink);
+  cursor: pointer;
+}
+
+.checkbox:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.fieldError {
+  grid-column: 1 / -1;
+  font-size: var(--step--1);
+  color: var(--warn-ink);
+  margin: 0.35rem 0 0;
+}
+
+.formError {
+  font-size: var(--step--1);
+  line-height: 1.5;
+  color: var(--warn-ink);
+  background: var(--warn-wash);
+  border: 1px solid var(--warn-ink);
+  border-radius: var(--radius);
+  padding: 0.65rem 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 2rem;
+}
+
+.submit {
+  font-family: var(--body);
+  font-size: var(--step-0);
+  font-weight: 600;
+  color: var(--paper-raised);
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  padding: 0.8rem 1.6rem;
+  cursor: pointer;
+}
+
+.submit:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.submit:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.saved {
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+}
+
+@media (max-width: 30rem) {
+  /* On a narrow phone the control drops beneath its label rather than squeezing the
+   * German text into a two-word column. German runs about 30% longer than English,
+   * and these labels are full questions. */
+  .setting {
+    grid-template-columns: 1fr;
+  }
+
+  .control {
+    grid-row: auto;
+    grid-column: 1;
+    justify-self: start;
+    margin-top: 0.5rem;
+  }
+}

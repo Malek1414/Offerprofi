@@ -1,10 +1,11 @@
 # Progress and session handoff
 
-**Updated:** 2026-08-09 · **Phase 0 and Phase 4 complete. Phase 1 complete except for
-persistence. Phase 2 core (F2.6/F2.8/F2.12) built; the rest of Phase 2 is next.**
+**Updated:** 2026-08-09 · **Phase 0 complete. Phase 1 complete except persistence.
+Phase 4 complete. Phase 2 is half built — everything that does not need object storage
+or a model call now works end to end against a real database.**
 
 See [EVAL.md](EVAL.md) for how to tear this down and judge it on evidence. Its section
-0 is the uncomfortable one: nothing here has met a real agency yet.
+0 is still the uncomfortable one: nothing here has met a real agency yet.
 
 Read [CLAUDE.md](../CLAUDE.md) first, then [PRODUCT_SPEC.md](../PRODUCT_SPEC.md), then
 [BUILD_STATUS.md](BUILD_STATUS.md) for the feature-by-feature account. This file is the
@@ -14,124 +15,176 @@ short version: where the work stopped, and what to pick up.
 
 ## State of the tree
 
-`npm run verify` → typecheck, lint, **231 tests**, all green.
-`npm run test:db` → migrations applied to a scratch Postgres + **8 database assertions**.
-`npm run build` → clean production build.
-`npm run dev` → `/q/demo` renders a real quote; `/a/demo` runs the hosted chat.
+```
+npm run verify     typecheck + lint + 349 tests        green
+npm run test:db    5 migrations + 2 assertion suites   green   (needs local Postgres)
+npm run build      production build                    clean
+```
 
-Nothing is committed yet beyond the two documentation commits. The whole of Phase 0,
-Phase 4 and Phase 1 is sitting in the working tree.
+Four commits, all of Phase 0/1/4 and half of Phase 2 committed.
 
-### What runs today, without any credentials
+### The thing that changed most this session
+
+**There is a real database now.** `./db/dev-setup.sh` creates `angebot_dev` and the
+`app_login` role, and `.env.local` points at it. That role inherits `app_user`, which is
+`NOLOGIN NOBYPASSRLS` — so development runs under the same row-level-security
+constraint as production. Connecting as the database owner instead would silently
+disable every policy in the product while all the tests still passed.
+
+Everything below was therefore verified in a browser against real rows, not only in
+unit tests.
+
+### What runs today
 
 | URL | What it does |
 |---|---|
-| `/a/demo` | Hosted chat. Streams the AI disclosure, then the acknowledgement, mirroring DE/EN and Sie/Du |
-| `/q/demo` | Web quote, priced by the real deterministic engine |
+| `/signup` | Creates a real tenant. Live slug preview, collision suggestions |
+| `/login` | Indistinguishable on failure, timing-equalised, exponential backoff |
+| `/` | Router, not a page — sends an owner to onboarding or the inbox by her state |
+| `/onboarding` | Progress against the real Phase 2 exit criterion |
+| `/onboarding/catalogue` | Build the whole catalogue by hand |
+| `/onboarding/guardrails` | All the guardrails that do not need a calendar |
+| `/a/demo` | Hosted chat — disclosure, ack, DE/EN, Sie/Du |
+| `/q/demo` | Web quote, priced by the real engine |
 
-`CHAT_SESSION_SECRET` must be set or the message endpoint throws by design. `.env.local`
-holds a development value and is gitignored.
-
----
-
-## What was built this session (Phase 1)
-
-Nine modules and six test files, 124 new tests. The engine-side work from the previous
-session was untouched.
-
-```
-src/channels/envelope.ts            F1.1  canonical InboundEvent + zod + idempotency
-src/channels/registry.ts            F1.2  adapter contract + registry (constraint X1)
-src/channels/adapters/hosted-chat.ts F1.3 the first adapter
-src/i18n/detect.ts                  F1.15 language + formality detection
-src/chat/session.ts                 F1.5  token mint/hash/sign/verify
-src/chat/rate-limit.ts              F1.6  throttle, never refuse
-src/chat/abuse.ts                   F1.11 honeypot/timing/cap/spam → tray, never away
-src/chat/uploads.ts                 F1.10 content sniffing, limits, scan gate
-src/chat/ack.ts                     F1.9  instant ack, ordering enforced by type
-src/chat/conversation.ts            F1.7/8/13/14  what the agent says, and when
-src/lib/agency.ts                   F1.4  slug → tenant, server-side only
-src/app/a/[slug]/                   S4/S5/S7/S8  the chat surface
-src/app/api/chat/[slug]/route.ts    the SSE message endpoint
-```
-
-Verified against the running server, not only in unit tests: disclosure precedes the
-ack; a second turn on the same cookie does not repeat the disclosure; English gets
-English; "du" gets "du"; and a message with the honeypot filled and a 40 ms submit time
-is **still acknowledged** and routed to the tray rather than refused.
+`CHAT_SESSION_SECRET` and `DATABASE_URL` must both be set. `.env.local` has development
+values and is gitignored.
 
 ---
 
-## Phase 2 so far
+## Built this session
 
-Built: `src/onboarding/candidates.ts` (F2.6/F2.8) and `src/onboarding/progress.ts`
-(F2.3/F2.12), 27 tests. The rule that *nothing enters the live catalogue unconfirmed*
-now holds in three independent places — the type system (no function crosses from
-`CatalogueCandidate` to `CatalogItem` without a user id), the database
-(`active_items_must_be_confirmed`), and a test that fails if a bypass is added.
+**F0.6 owner auth.** scrypt hashing with self-describing parameters (raise the cost
+later without invalidating existing hashes; upgraded silently on next login).
+Database-backed staff sessions in their own module with their own cookie — revocation
+is the whole reason the table exists, because someone leaving a three-person agency
+has to lose access that afternoon. Login is indistinguishable on failure and verifies
+against a dummy hash when the address is unknown, so the form is not an
+account-enumeration oracle. **Measured at ~201 ms either way in the real request path.**
 
-Not built: everything that needs file storage or a model call.
+**F0.7 tenant bootstrap.** One `SECURITY DEFINER` function writes user, agency, owner
+membership and slug reservation atomically; a database assertion proves partial success
+is impossible. Slug derivation transliterates rather than strips, so `Schröder` becomes
+`schroeder` — the string ends up on a business card. A collision returns three free
+alternatives, which is the acceptance criterion: a suggestion, never an error page.
 
-## Pick up here — the rest of Phase 2
+**S9 onboarding shell.** A checklist, not a wizard. The steps have genuinely different
+costs, and an owner blocked behind one she cannot do right now abandons rather than
+skipping ahead.
 
-Phase 2 is the ≥70% unaided-completion target, and S13 (catalogue confirm) is called out
-in the inventory as the hardest screen in the product. Order suggested:
+**F2.9 / F2.11 catalogue by hand.** Closes open question #5 — an owner whose extraction
+goes badly is never stuck, because this path never depended on extraction. List and
+editor share one surface; the form keeps driver, unit and VAT between saves because an
+agency's services cluster.
 
-1. **F2.1/F2.2 bulk upload and per-format workers.** Reuse `src/chat/uploads.ts` — the
-   sniffing and the scan gate are already written and tested; do not write a second
-   upload path.
-2. **F2.6 extraction** of catalogue candidates from the mandatory ≥3 past quotes (D4).
-   First Claude call in the codebase. It emits `CatalogueCandidate[]` and nothing else —
-   the confirmation model already exists and must not be routed around.
-3. **S13 confirmation UI** — per-object confirm/edit/reject with the source excerpt
-   shown inline. Without the excerpt visible the owner confirms blindly and the review
-   is theatre.
-4. **F2.5 BrandProfile** — feeds `buildAgencyTheme()`, which already guarantees WCAG AA
-   for arbitrary agency colours in both schemes.
-5. **F2.13 guardrail form** — must be fillable in under three minutes by a non-engineer.
+**F2.13 guardrails.** Nine of the twelve settings, grouped into three questions an owner
+actually has. The other three are calendar work (F4.11) or need Phase 10 channels. All
+pre-filled, so the three-minute budget is spent on the two she wants to change.
 
-### Before Phase 2, two things worth doing first
+---
 
-- **Provision the Postgres EU instance and object storage.** The schema itself is no
-  longer a risk — it applies cleanly and RLS provably isolates tenants (`npm run
-  test:db`). What is blocking: the chat cannot persist a transcript and Phase 2 has
-  nowhere to put uploaded files. Also needed, and new since D15 changed: our own
-  auth, and an S3-compatible bucket (D29).
-- **Close the Phase 1 persistence gap** while the code is fresh. Every insertion point
-  is marked `TODO(Phase 1, database)` in `src/app/api/chat/[slug]/route.ts` and
-  `src/lib/agency.ts`. It is roughly: resolve the slug against `agency_slugs`, upsert
-  the inquiry, insert the message idempotently on `external_message_id`, write the
-  `chat_sessions` row and the `disclosure_records` row.
+## Bugs found, and how
+
+Worth recording because the *method* mattered more than any individual fix.
+
+**Found by looking at the rendered screen, not by a test:**
+
+- The progress model treated a target of zero as met, so a brand-new owner with no
+  services was told she had already completed "a price for every service", and the
+  counter claimed 1 of 5. Arithmetically true; wrong in front of a person, on the first
+  screen of the flow the ≥70% completion target depends on. Requirements now carry
+  `blocked`, and the test that encoded the old behaviour was replaced.
+- The signup URL preview was an inline `<span>`, so a wrapped URL broke its background
+  into ragged per-line fragments.
+- `formatEuroInput` rendered €5,000 as `5000,00` next to a placeholder reading
+  `5.000,00`, making the two look like different kinds of number.
+
+**Found by tests:**
+
+- A zero list price also fired the floor comparison, so the owner was told her floor was
+  above the list price — about the one field she had typed correctly.
+- `Number('')` is `0` and `0` is a valid VAT rate, so an unanswered VAT field silently
+  zero-rated an item. That mistake first surfaces on an invoice.
+
+**Found by running the migration:**
+
+- Session expiry used `now()`, the *transaction* timestamp, which does not advance while
+  a transaction runs — so a session that died mid-request still resolved. Now
+  `clock_timestamp()`.
+
+**Found by typecheck:** the repository restated the `QuantityDriver` and `VatRate`
+unions instead of importing them, and the copy was already missing `per_day` within an
+hour of being written.
+
+---
+
+## Pick up here
+
+### 1. The rest of Phase 2 — needs object storage first
+
+F2.1 bulk upload, F2.2 per-format workers, F2.4 crawl, F2.5 BrandProfile, F2.7
+QuotePattern, and screen S13 (per-object confirm/edit/reject with source excerpts, the
+hardest screen in the product). **All of it is blocked on an S3-compatible bucket in the
+EU (F0.5, D29b).** Reuse `src/chat/uploads.ts` — the sniffing and the scan gate are
+already written and tested; do not write a second upload path.
+
+### 2. Staffelpreise have no UI
+
+`price_rules` is modelled, migrated, read by the engine, and `replacePriceRules` is
+written — but screen S17 exposes only the single unit price. An owner who prices per
+head in bands cannot express that yet. Small, self-contained, and needs nothing new.
+
+### 3. Phase 1 persistence
+
+Still the oldest outstanding gap. Every insertion point is marked
+`TODO(Phase 1, database)` in `src/app/api/chat/[slug]/route.ts` and `src/lib/agency.ts`.
+Now genuinely unblocked, because the database exists: resolve the slug against
+`agency_slugs`, upsert the inquiry, insert the message idempotently on
+`external_message_id`, write the `chat_sessions` and `disclosure_records` rows.
+
+### 4. Email verification and password reset
+
+Both need outbound email (Phase 7). Until then signup trusts the address as typed and
+an owner who forgets her password has no self-service route back in. The signup screen
+says so rather than implying otherwise.
 
 ---
 
 ## Open questions this session did not resolve
 
-Carried forward from CLAUDE.md §9, with what the build learned:
+1. **The product name is still blocking**, and it is now the single most visible
+   placeholder: `chat.example.invalid/a/lisa-meier-hochzeiten` appears on the owner's
+   own onboarding screen, with a warning that it will not work until the domain is set.
+   Closing it is an edit to three environment variables (`src/lib/branding.ts`), and a
+   test asserts no candidate name is hardcoded anywhere.
+2. **SLA wording (§9.8).** `slaHours` is still a per-agency field with no UI. Who sets
+   it, and what happens when it is missed?
+3. **Chat conversion rate (§9.6)** — still the load-bearing unknown.
+4. **~~Manual-catalogue fallback (§9.5)~~ — closed.** F2.11 is built; an owner whose
+   uploads extract badly completes onboarding by typing.
 
-1. **The product name is still blocking.** It is now hardcoded nowhere, but it is
-   customer-visible the moment a real agency uses `/a/{slug}`.
-2. **SLA wording (§9.8).** The ack says "within X hours" and `slaHours` is currently a
-   per-agency field with no UI. Who sets it, and what happens when it is missed?
-3. **Chat conversion rate (§9.6)** — still the load-bearing unknown, and now measurable
-   as soon as a design partner has a link.
-
-## Stack change, 2026-08-09
-
-D15 moved from Supabase to plain PostgreSQL. What that actually cost is written up as
-**D29** in CLAUDE.md — Supabase supplied four things and only Postgres itself is
-replaced for free. Auth, object storage and the request-scoped identity behind RLS are
-now ours. The identity piece is built (`src/db/client.ts` sets `app.current_user_id`
-per transaction, so a pooled connection cannot leak one request's identity into the
-next); auth and storage are not.
-
-`supabase/` is now `db/`. The `pg` driver replaced `@supabase/*`.
+---
 
 ## Things a future session should not undo
 
-- The six invariants in CLAUDE.md §2, and their tests. They fail loudly for a reason.
-- `RateLimitDecision` and `TriageResult` having no refusal-shaped variant.
-- The adapter contract staying a pure function. Phase 12's exit criterion — a WhatsApp
-  adapter landing with zero downstream changes — is only achievable while it holds.
+- The six invariants in CLAUDE.md §2, and their tests.
+- **The two rate limiters are deliberately different types.** `src/chat/rate-limit.ts`
+  guards the customer surface and has no variant that can express a refusal — that is
+  Invariant 1 in the compiler. `src/auth/throttle.ts` guards our own front door and does
+  refuse, which is correct: I1 protects the agency's customers, not anonymous strangers.
+  Merging them turns a guarantee into a convention.
+- **The guardrail copy is tested.** `minOrderValue` is refusal-shaped, and an owner who
+  believes it declines small jobs will configure her business around a behaviour that
+  cannot happen. A test asserts the German wording never promises one.
+- Login backs off exponentially rather than locking out — a lockout would let anyone who
+  knows an owner's email keep her out of her own dashboard.
+- The adapter contract staying a pure function. Phase 12's exit criterion depends on it.
 - Case-sensitive Sie detection.
 - Zero third-party origins on `/a/*`, `/q/*`, `/f/*`.
+
+## A development quirk worth knowing
+
+Adding a new CSS module while `next dev` is running leaves the server serving 404s for
+its own chunks, and the page renders completely unstyled. It is not a CSS bug and not
+worth debugging — `rm -rf .next` and restart. It cost two round trips this session
+before the pattern was obvious.
