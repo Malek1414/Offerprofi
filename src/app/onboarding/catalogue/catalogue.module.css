@@ -1,0 +1,296 @@
+/*
+ * S16/S17 — catalogue list and item editor (F2.9, F2.11).
+ *
+ * The manual path. An owner reaches this either because extraction went badly (open
+ * question #5) or because typing five services she knows by heart is faster than
+ * reviewing five guesses.
+ *
+ * The list and the editor share a screen rather than sitting on separate routes. Five
+ * services is the target, and five round trips through a detail page to enter them is
+ * where the fifteen-minute budget goes. Everything stays visible: what she has typed
+ * so far is the context for the next one, and seeing the list grow is what makes the
+ * task feel finishable.
+ */
+
+.page {
+  min-height: 100dvh;
+  background: var(--paper-sunk);
+  padding: clamp(1.25rem, 5vw, 3rem) 1.25rem 5rem;
+}
+
+.shell {
+  max-width: 52rem;
+  margin: 0 auto;
+}
+
+.back {
+  display: inline-block;
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+  margin-bottom: 1.25rem;
+}
+
+.back:hover {
+  color: var(--ink);
+}
+
+.title {
+  font-family: var(--display);
+  font-size: var(--step-3);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.5rem;
+}
+
+.lede {
+  color: var(--ink-soft);
+  line-height: 1.55;
+  max-width: var(--measure);
+  margin: 0 0 2rem;
+}
+
+/* ─── The list ─────────────────────────────────────────────────────────── */
+
+.list {
+  list-style: none;
+  margin: 0 0 2rem;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.item {
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.9rem 1.1rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.15rem 1rem;
+  align-items: baseline;
+}
+
+.itemName {
+  font-weight: 600;
+}
+
+.itemPrice {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.itemMeta {
+  grid-column: 1 / -1;
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.6rem;
+  margin-top: 0.2rem;
+}
+
+/* The floor is shown on every row, not hidden behind an edit click. It is the number
+ * that decides how far the agent may go on the owner's behalf while she is asleep,
+ * and she should be able to audit all of them at a glance. */
+.itemFloor {
+  font-variant-numeric: tabular-nums;
+}
+
+.empty {
+  background: var(--paper-raised);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--ink-mute);
+  line-height: 1.55;
+  margin-bottom: 2rem;
+}
+
+/* ─── The editor ───────────────────────────────────────────────────────── */
+
+.form {
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: clamp(1.1rem, 4vw, 1.75rem);
+}
+
+.formTitle {
+  font-family: var(--display);
+  font-size: var(--step-1);
+  margin: 0 0 1.25rem;
+}
+
+.row {
+  display: grid;
+  gap: 0 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 34rem) {
+  .rowSplit {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.field {
+  display: block;
+  margin-bottom: 1.1rem;
+}
+
+.label {
+  display: block;
+  font-size: var(--step--1);
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin-bottom: 0.35rem;
+}
+
+.hint {
+  display: block;
+  font-weight: 400;
+  color: var(--ink-mute);
+  margin-top: 0.15rem;
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  box-sizing: border-box;
+  /* 16px floor in absolute terms — iOS Safari zooms the page on focus below that and
+   * never zooms back. */
+  font-size: max(1rem, var(--step-0));
+  font-family: var(--body);
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  padding: 0.7rem 0.75rem;
+}
+
+.textarea {
+  min-height: 4.5rem;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+/* Prices are compared down a column, so they get tabular figures and the alignment
+ * that makes a mistyped digit visible. */
+.money {
+  font-variant-numeric: tabular-nums;
+}
+
+.input:focus-visible,
+.select:focus-visible,
+.textarea:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+  border-color: var(--ink);
+}
+
+.input[aria-invalid='true'],
+.select[aria-invalid='true'] {
+  border-color: var(--warn-ink);
+}
+
+.fieldError {
+  display: block;
+  font-size: var(--step--1);
+  color: var(--warn-ink);
+  margin-top: 0.3rem;
+}
+
+.actions {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+.submit {
+  font-family: var(--body);
+  font-size: var(--step-0);
+  font-weight: 600;
+  color: var(--paper-raised);
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  padding: 0.75rem 1.4rem;
+  cursor: pointer;
+}
+
+.submit:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.submit:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.secondary {
+  font-family: var(--body);
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+  background: none;
+  border: none;
+  padding: 0.5rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.secondary:hover {
+  color: var(--ink);
+}
+
+.formError {
+  font-size: var(--step--1);
+  line-height: 1.5;
+  color: var(--warn-ink);
+  background: var(--warn-wash);
+  border: 1px solid var(--warn-ink);
+  border-radius: var(--radius);
+  padding: 0.65rem 0.75rem;
+  margin-bottom: 1.1rem;
+}
+
+/*
+ * Confirmation that a service was saved.
+ *
+ * Announced to assistive technology as well as shown, because the list it refers to
+ * is above the form and a screen-reader user would otherwise get no signal that
+ * anything happened.
+ */
+.saved {
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+  margin-left: 0.25rem;
+}
+
+.done {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.doneNote {
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+  margin: 0;
+}
+
+.doneLink {
+  font-size: var(--step-0);
+  font-weight: 600;
+  color: var(--ink);
+}

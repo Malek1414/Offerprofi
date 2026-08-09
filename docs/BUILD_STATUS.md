@@ -5,7 +5,7 @@ Updated 2026-08-09.
 
 ## Verified working
 
-`npm run verify` — typecheck, lint and **306 tests**, all green. `npm run test:db` applies
+`npm run verify` — typecheck, lint and **334 tests**, all green. `npm run test:db` applies
 all five migrations to a scratch PostgreSQL and runs **two assertion suites** against it.
 `npm run build` produces a clean production build. `npm run dev` then `/q/demo` renders a
 real quote priced by the real engine, `/a/demo` runs the hosted chat against the real
@@ -37,13 +37,15 @@ request path, not just in a test).
 | F1.15 language/formality | **Done** | Case-sensitive Sie detection; agency override wins. 16 tests |
 | F2.6 catalogue candidates | **Partial** | Candidate model + frequency score. No extraction worker produces them yet |
 | F2.8 confirm/edit/reject | **Done** | Guaranteed in three places: type, DB constraint, test. 17 tests |
-| F2.12 progress meter | **Done** | Measured against the real Phase 2 exit criterion. 10 tests |
 | X2 guardrail evaluator | **Done** | 17 tests. Two outcomes only |
 | X4 audit log | **Schema** | Trigger writes on every inquiry transition |
 | X5 i18n DE/EN | **Partial** | Quote document and modifier reasons localised, Sie/Du mirrored. Dashboard and email templates not built |
 | X7 invariant CI gate | **Done** | 39 tests across I1–I6 |
 | F0.6 owner auth | **Done** | scrypt hashing, DB-backed revocable sessions, signup/login/logout endpoints, screens S1–S2. 56 tests + 20 DB assertions |
 | F0.7 tenant bootstrap | **Done** | One atomic function writes user + agency + owner membership + slug. Collision returns suggestions, never an error page |
+| F2.9 catalogue CRUD | **Done** | Create, edit, retire. German money parsing. Screens S16/S17. 26 tests |
+| F2.11 manual fallback | **Done** | The whole catalogue is buildable by hand, so poor extraction never blocks onboarding (closes open question #5) |
+| F2.12 progress meter | **Done** | Screen S9. Renders real state; blocked steps are neither done nor actionable |
 | F0.3 schema | **Done** | 33 tables, indexes, enums |
 | F0.4 RLS | **Done** | Generated from a list plus a migration-time coverage assertion |
 | F0.8 tenancy tests | **Done** | `npm run test:db` — 8 assertions, executed against real Postgres. Isolation verified in both directions |
@@ -69,12 +71,16 @@ Everything else in the inventory. Named explicitly rather than left to inference
   F0.12 feature flags. Auth (F0.6) and tenant bootstrap (F0.7) are now closed; **email
   verification and password reset are not** — both need outbound email, which is
   Phase 7. Signup therefore trusts the address until then, and says so.
-- **Phase 2, the rest** — F2.1 bulk upload, F2.2 per-format workers, F2.4 crawl,
-  F2.5 BrandProfile candidates, F2.7 QuotePattern, F2.9 catalogue CRUD, F2.10 house
-  voice, F2.11 manual fallback, F2.13 guardrail form, and screens S9–S19. The
-  confirmation *model* exists; the confirmation *UI* (S13, the hardest screen in the
-  product) does not. **This is the next thing to build**, and most of it needs
-  object storage first.
+- **Phase 2, the rest** — F2.1 bulk upload, F2.2 per-format workers, F2.3 the
+  three-quote requirement (counted and explained, but nothing can be uploaded yet),
+  F2.4 crawl, F2.5 BrandProfile candidates, F2.7 QuotePattern, F2.10 house voice,
+  F2.13 guardrail form, and screens S10–S15, S18, S19. The confirmation *model*
+  exists; the confirmation *UI* (S13, the hardest screen in the product) does not.
+  Everything still outstanding here needs either object storage or a model call —
+  **F2.13, the guardrail form, is the exception and is the next thing to build.**
+- **Staffelpreise have no UI.** `price_rules` is modelled, migrated and read by the
+  engine, and `replacePriceRules` is written — but screen S17 exposes only the single
+  unit price. An owner who prices per head in bands cannot express that yet.
 - **Phase 3** the extraction worker itself (types exist, the Claude calls do not).
 - **Phase 4** calendar sync (F4.9–F4.12). `AvailabilityOutcome` is consumed by the
   engine but nothing populates it yet.

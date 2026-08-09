@@ -16,6 +16,7 @@ import type { PoolClient } from 'pg'
 
 import { withUser } from '../db/client'
 import { cents, type Cents } from '../domain/money'
+import type { QuantityDriver, VatRate } from '../domain/catalogue'
 import type { OnboardingState } from './progress'
 
 export interface AgencyContext {
@@ -110,8 +111,10 @@ export interface CatalogueItemRow {
   unit: string
   unitPrice: Cents
   floorPrice: Cents
-  vatRate: 19 | 7 | 0
-  quantityDriver: 'flat' | 'per_guest' | 'per_hour' | 'per_km' | 'per_unit'
+  // From the domain, not restated. A second copy of these unions drifted within an
+  // hour of being written — it was missing `per_day`, which the database enum has.
+  vatRate: VatRate
+  quantityDriver: QuantityDriver
   active: boolean
   confirmedAt: string | null
   priceRuleCount: number
@@ -235,8 +238,8 @@ function toCatalogueItem(row: Record<string, unknown>): CatalogueItemRow {
     unit: String(row.unit),
     unitPrice: cents(Number(row.unit_price_cents)),
     floorPrice: cents(Number(row.floor_price_cents)),
-    vatRate: Number(row.vat_rate) as 19 | 7 | 0,
-    quantityDriver: String(row.quantity_driver) as CatalogueItemRow['quantityDriver'],
+    vatRate: Number(row.vat_rate) as VatRate,
+    quantityDriver: String(row.quantity_driver) as QuantityDriver,
     active: Boolean(row.active),
     confirmedAt: row.confirmed_at ? new Date(String(row.confirmed_at)).toISOString() : null,
     priceRuleCount: Number(row.rule_count ?? 0),
