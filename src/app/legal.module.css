@@ -1,0 +1,103 @@
+.page {
+  min-height: 100dvh;
+  padding: clamp(1.5rem, 5vw, 4rem) 1.25rem 5rem;
+  background: var(--paper-sunk);
+}
+
+.document {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: clamp(1.25rem, 4vw, 3rem);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper-raised);
+}
+
+.brand {
+  display: inline-block;
+  margin-bottom: 2rem;
+  color: var(--ink-mute);
+  font-size: var(--step--1);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.title {
+  margin-bottom: 0.65rem;
+  font-size: var(--step-3);
+}
+
+.updated,
+.lede {
+  color: var(--ink-mute);
+}
+
+.updated {
+  margin: 0 0 1.5rem;
+  font-size: var(--step--1);
+}
+
+.lede {
+  max-width: 40rem;
+  margin: 0 0 2rem;
+}
+
+.warning {
+  margin: 0 0 2rem;
+  padding: 1rem;
+  border: 1px solid var(--warn-ink);
+  border-radius: var(--radius);
+  background: var(--warn-wash);
+  color: var(--warn-ink);
+}
+
+.warning strong {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.section {
+  padding: 1.4rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.section h2 {
+  margin-bottom: 0.55rem;
+  font-family: var(--body);
+  font-size: var(--step-1);
+}
+
+.section p,
+.section ul,
+.section address {
+  margin: 0.4rem 0 0;
+}
+
+.section ul {
+  padding-left: 1.25rem;
+}
+
+.section li + li {
+  margin-top: 0.35rem;
+}
+
+.section address {
+  font-style: normal;
+}
+
+.missing {
+  color: var(--warn-ink);
+  font-style: italic;
+}
+
+.footer {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  font-size: var(--step--1);
+}

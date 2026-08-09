@@ -1,10 +1,10 @@
 {
-  "name": "quote-automation",
+  "name": "offerprofi",
   "version": "0.1.0",
   "private": true,
-  "description": "Quote automation for small event agencies (DACH). See PRODUCT_SPEC.md.",
+  "description": "AI-assisted catering request qualification and owner-side pricing for DACH caterers.",
   "engines": {
-    "node": ">=20"
+    "node": ">=20.9"
   },
   "scripts": {
     "dev": "next dev",
@@ -21,21 +21,22 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.116.0",
-    "next": "^15.5.0",
+    "next": "^16.3.0",
+    "pdf-parse": "^2.4.5",
     "pg": "^8.23.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "zod": "^4.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^22.10.0",
     "@types/pg": "^8.21.0",
-    "@types/react": "^19.1.0",
-    "@types/react-dom": "^19.1.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
     "@typescript-eslint/parser": "^8.66.0",
-    "eslint": "^9.18.0",
-    "eslint-config-next": "^15.5.0",
+    "eslint": "^10.8.1",
+    "eslint-config-next": "^16.3.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   }

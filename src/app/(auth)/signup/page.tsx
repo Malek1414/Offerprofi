@@ -29,8 +29,8 @@ export default function SignupPage() {
 
         <h1 className={styles.title}>Konto erstellen</h1>
         <p className={styles.lede}>
-          In wenigen Minuten eingerichtet. Danach laden Sie drei Ihrer bisherigen Angebote hoch —
-          daraus entsteht Ihr Leistungskatalog.
+            In wenigen Minuten eingerichtet. Drei frühere Angebote geben dem Assistenten Ihre
+            Sprache und Arbeitsweise; Ihren kalkulierbaren Leistungskatalog bestätigen Sie selbst.
         </p>
 
         <SignupForm chatDomain={brand.chatDomain} />
@@ -49,7 +49,7 @@ export default function SignupPage() {
         {isPlaceholderBranding(brand) && (
           <>
             {' '}
-            <strong>Hinweis:</strong> Diese Installation läuft noch auf Platzhalter-Adressen.
+            <strong>Hinweis:</strong> Diese Installation läuft noch auf einer lokalen Adresse.
           </>
         )}
       </p>

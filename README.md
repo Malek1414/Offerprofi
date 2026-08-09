@@ -1,19 +1,17 @@
-# Quote automation for small event agencies (DACH)
+# Offerprofi
 
-An inquiry arrives, is acknowledged in seconds, is parsed into structured event data,
-is priced **deterministically** against the agency's own catalogue, and becomes a
-branded quote. The agent negotiates with the end customer inside hard guardrails, and
-the owner enters after agreement — to confirm and fulfil, not to type documents.
-
-Working title still open. `{BRAND}` and `{DOMAIN}` are placeholders throughout; see
-open question #1 in [CLAUDE.md](CLAUDE.md).
+Offerprofi turns a catering conversation into a qualified, shareable request and puts
+it in the caterer's inbox. The customer never receives an AI-generated price. The
+caterer sees an owner-side suggestion calculated deterministically from their confirmed
+catalogue, including the line-by-line margin view, and remains the person who decides.
 
 ## Documents
 
 | File | What it is |
 |---|---|
 | [CLAUDE.md](CLAUDE.md) | Standing context. Six binding invariants, 28 locked decisions. **Read first.** |
-| [PRODUCT_SPEC.md](PRODUCT_SPEC.md) | Full specification, rev. 3. Authoritative |
+| [PRODUCT_SPEC.md](PRODUCT_SPEC.md) | Original full specification; the catering pivot in PROGRESS takes precedence |
+| [docs/PROGRESS.md](docs/PROGRESS.md) | Current implementation and session handoff |
 | [docs/FEATURE_INVENTORY.md](docs/FEATURE_INVENTORY.md) | ~130 features across phases 0–12, each with an acceptance criterion. 59 screens |
 | [docs/ORIGINAL_BRIEF.md](docs/ORIGINAL_BRIEF.md) | Source record, verbatim |
 
@@ -21,13 +19,25 @@ open question #1 in [CLAUDE.md](CLAUDE.md).
 
 ```bash
 npm install
-npm run dev          # http://localhost:3737/q/demo renders a real quote
+npm run dev          # http://localhost:3000
 npm run verify       # typecheck + lint + all tests
 npm run test:invariants   # the six Art. 22 tests on their own
+npm run test:db      # applies every migration to a scratch PostgreSQL database
 ```
 
-No database is needed to see the customer-facing surfaces — they fall back to
-a demo tenant (`src/lib/demo.ts`) when `DATABASE_URL` is unset.
+For the full owner and customer flow:
+
+```bash
+./db/dev-setup.sh
+psql -d angebot_dev -f scripts/seed-demo.sql
+npm run dev
+```
+
+Then sign in with `johannes@krautundrueben.test` / `DemoPasswort2026!`, or open the
+customer chat at `/a/kraut-und-rueben`. Copy `.env.example` to `.env.local` and add an
+`ANTHROPIC_API_KEY` to enable real extraction, qualifying questions, contextual
+document prefixes and service mapping. Without it, the product uses its tested human
+handoff and sparse-search fallbacks.
 
 ## The six invariants
 
@@ -53,15 +63,17 @@ rules, ordered modifiers, per-line VAT 19/7/0, full calculation trace. Pure: no 
 no model call. Guardrail evaluator whose outcome type admits exactly two values,
 `send` and `escalate`.
 
-**Schema (complete).** 33 tables, RLS on every tenant table plus a migration-time
-assertion that none was missed, state-transition and opt-out triggers, gapless quote
-numbering allocated at send.
+**Schema.** PostgreSQL tenant isolation, state-transition and opt-out triggers,
+append-only evidence, request links, owner inbox, structured agency facts and the
+searchable document layer. RLS protects every tenant table.
 
-**Quote document (complete).** Server-rendered, branded from the agency's own colour,
-DE/EN, print stylesheet, mobile-first. Any line opens to show its arithmetic.
+**Product surfaces.** Signup/login, checklist onboarding, document ingestion, manual
+catalogue, brand colour, guardrails, public chat, two-audience request documents,
+owner-side price suggestion, WhatsApp adapter and inbox.
 
-**Not yet built:** onboarding, extraction, the conversation agent, the owner
-dashboard, email, billing. See `docs/BUILD_STATUS.md`.
+**Before a public launch:** supply the Anthropic key, production database/domain,
+review and complete the legal pages, and configure any optional channel provider.
+See `docs/PROGRESS.md` for the exact state.
 
 ## Architecture notes
 

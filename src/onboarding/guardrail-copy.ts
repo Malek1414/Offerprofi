@@ -40,32 +40,32 @@ export type GuardrailCopyKey =
 
 const DE: Record<GuardrailCopyKey, CopyEntry> = {
   autoSendEnabled: {
-    label: 'Angebote automatisch verschicken',
+    label: 'Angebote automatisch ohne Freigabe verschicken',
     help:
-      'Wenn aus: Sie sehen jedes Angebot vorher und geben es selbst frei. ' +
-      'Wenn an: einfache Anfragen beantwortet der Assistent allein — alles andere ' +
-      'kommt trotzdem zu Ihnen.',
+      'Zum Start prüft und bestätigt immer ein Mensch jedes Angebot. Der Assistent ' +
+      'qualifiziert die Anfrage und bereitet Ihre Kalkulation vor, verschickt aber ' +
+      'keinen Preis an die Kundin.',
   },
   maxAutoQuoteValue: {
-    label: 'Ab welchem Betrag möchten Sie selbst draufschauen?',
-    help:
-      'Angebote über diesem Betrag gehen erst raus, wenn Sie sie freigegeben haben. ' +
-      'Bei großen Aufträgen lohnt sich der kurze Blick.',
+      label: 'Ab welchem Betrag möchten Sie besonders prüfen?',
+      help:
+        'Anfragen über diesem Betrag werden in Ihrer Prüfung besonders hervorgehoben. ' +
+        'Sie geben weiterhin jedes Angebot selbst frei.',
   },
   minOrderValue: {
     label: 'Ab welchem Betrag lohnt sich eine Anfrage für Sie?',
     // The Invariant 1 sentence. Says what happens, and says plainly what does not.
     help:
-      'Liegt eine Anfrage darunter, bekommt die Kundin trotzdem ein Angebot — wir ' +
-      'geben Ihnen zusätzlich Bescheid, damit Sie entscheiden können. Niemand wird ' +
-      'automatisch weggeschickt. Leer lassen, wenn Sie das nicht brauchen.',
+        'Liegt eine Anfrage darunter, bleibt sie trotzdem in Ihrem Postfach — wir geben ' +
+        'Ihnen nur zusätzlich Bescheid. Niemand wird automatisch weggeschickt. Leer ' +
+        'lassen, wenn Sie das nicht brauchen.',
   },
   allowScopeReduction: {
     label: 'Bei knappem Budget einen kleineren Umfang anbieten',
     help:
-      'Nennt jemand ein Budget, das nicht reicht, stellt der Assistent zusätzlich ' +
-      'eine kleinere Variante aus Ihren Leistungen zusammen. Ihre Preise bleiben ' +
-      'dabei unverändert — Rabatte gibt er nie.',
+        'Nennt jemand ein knappes Budget, schlägt der Assistent Ihnen zusätzlich eine ' +
+        'kleinere Variante aus bestätigten Leistungen vor. Ihre Preise bleiben dabei ' +
+        'unverändert — Rabatte erfindet er nie.',
   },
   maxNegotiationRounds: {
     label: 'Wie oft darf nachgebessert werden?',
@@ -75,7 +75,7 @@ const DE: Record<GuardrailCopyKey, CopyEntry> = {
   },
   quoteValidityDays: {
     label: 'Wie lange gilt ein Angebot?',
-    help: 'Danach läuft es ab. Die Kundin wird zwei Tage vorher erinnert.',
+      help: 'Diese Frist wird in dem Angebot verwendet, das Sie anschließend freigeben.',
   },
   leadTimeMinDays: {
     label: 'Wie viel Vorlauf brauchen Sie mindestens?',
@@ -95,30 +95,28 @@ const DE: Record<GuardrailCopyKey, CopyEntry> = {
 
 const EN: Record<GuardrailCopyKey, CopyEntry> = {
   autoSendEnabled: {
-    label: 'Send quotes automatically',
+    label: 'Send quotes automatically without approval',
     help:
-      'Off: you see and release every quote yourself. On: the assistant answers ' +
-      'straightforward inquiries on its own — everything else still comes to you.',
+      'At launch, a person reviews and approves every quote. The assistant qualifies ' +
+      'the inquiry and prepares your calculation but sends no customer-facing price.',
   },
   maxAutoQuoteValue: {
-    label: 'Above what amount do you want to look first?',
-    help:
-      'Quotes above this go out only once you have released them. On large jobs the ' +
-      'quick look is worth it.',
+      label: 'Above what amount should an inquiry be highlighted?',
+      help:
+        'Inquiries above this amount are highlighted during your review. You still ' +
+        'approve every quote yourself.',
   },
   minOrderValue: {
     label: 'From what amount is an inquiry worth your time?',
     help:
-      'Below this the customer still receives a quote — we simply tell you as well, ' +
-      'so you can decide. Nobody is ever turned away automatically. Leave empty if ' +
-      'you do not need it.',
+        'Below this the inquiry still reaches your inbox, with a note for your decision. ' +
+        'Nobody is ever turned away automatically. Leave empty if you do not need it.',
   },
   allowScopeReduction: {
     label: 'Offer a smaller scope when the budget is tight',
     help:
-      'If someone names a budget that will not stretch, the assistant also puts ' +
-      'together a smaller version from your own services. Your prices stay as they ' +
-      'are — it never discounts.',
+        'If someone names a tight budget, the assistant suggests a smaller version from ' +
+        'confirmed services for your review. Your prices stay unchanged — it never invents a discount.',
   },
   maxNegotiationRounds: {
     label: 'How many rounds of changes?',
@@ -126,7 +124,7 @@ const EN: Record<GuardrailCopyKey, CopyEntry> = {
   },
   quoteValidityDays: {
     label: 'How long is a quote valid?',
-    help: 'After that it expires. The customer is reminded two days beforehand.',
+      help: 'This period is used in the quote that you approve afterwards.',
   },
   leadTimeMinDays: {
     label: 'How much notice do you need?',

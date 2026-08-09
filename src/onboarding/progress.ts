@@ -134,12 +134,11 @@ export function requirementExplanation(
   language: 'de' | 'en',
 ): { title: string; why: string } {
   const de: Record<RequirementId, { title: string; why: string }> = {
-    past_quotes: {
-      title: 'Drei frühere Angebote hochladen',
-      why:
-        'Daraus lesen wir Ihre Leistungen und Preise aus. Mit weniger als drei ' +
-        'Angeboten erkennen wir nicht, welche Preise bei Ihnen die Regel sind und ' +
-        'welche die Ausnahme waren.',
+      past_quotes: {
+        title: 'Drei frühere Angebote hochladen',
+        why:
+          'Daraus lernt der Assistent Ihre Sprache, typische Abläufe und Kombinationen. ' +
+          'Preise werden erst verwendet, nachdem Sie sie im Leistungskatalog selbst bestätigt haben.',
     },
     confirmed_items: {
       title: 'Fünf Leistungen bestätigen',
@@ -153,24 +152,24 @@ export function requirementExplanation(
         'Ohne Preis kann eine Leistung nicht kalkuliert werden. Staffelpreise ' +
         '(z. B. ab 50 Personen) können Sie hier ebenfalls anlegen.',
     },
-    brand: {
-      title: 'Logo und Farbe bestätigen',
-      why: 'Damit Ihr Angebot nach Ihnen aussieht und nicht nach uns.',
+      brand: {
+        title: 'Markenauftritt bestätigen',
+        why: 'Damit Anfrage und Chat nach Ihnen aussehen und nicht nach uns.',
     },
-    guardrails: {
-      title: 'Grenzen festlegen',
-      why:
-        'Sie legen fest, wie weit der Assistent gehen darf — etwa den niedrigsten ' +
-        'Preis, den er nennen darf. Alles außerhalb dieser Grenzen kommt zu Ihnen.',
+      guardrails: {
+        title: 'Grenzen festlegen',
+        why:
+          'Sie legen fest, welche Kalkulationsvorschläge der Assistent vorbereiten darf. ' +
+          'Den Preis an die Kundin geben weiterhin Sie frei.',
     },
   }
 
   const en: Record<RequirementId, { title: string; why: string }> = {
-    past_quotes: {
-      title: 'Upload three past quotes',
-      why:
-        'We read your services and prices from them. With fewer than three we ' +
-        "cannot tell which of your prices are the rule and which were one-offs.",
+      past_quotes: {
+        title: 'Upload three past quotes',
+        why:
+          'They teach the assistant your language, typical process and combinations. ' +
+          'Prices are used only after you confirm them in the service catalogue.',
     },
     confirmed_items: {
       title: 'Confirm five services',
@@ -182,15 +181,15 @@ export function requirementExplanation(
         'A service without a price cannot be calculated. You can also add tiered ' +
         'prices here (for example, from 50 guests upwards).',
     },
-    brand: {
-      title: 'Confirm your logo and colour',
-      why: 'So the quote looks like it came from you, not from us.',
+      brand: {
+        title: 'Confirm your brand style',
+        why: 'So the request and chat look like they came from you, not from us.',
     },
-    guardrails: {
-      title: 'Set your limits',
-      why:
-        'You decide how far the assistant may go — the lowest price it may quote, ' +
-        'for instance. Anything outside your limits comes to you.',
+      guardrails: {
+        title: 'Set your limits',
+        why:
+          'You decide which calculation suggestions the assistant may prepare. You ' +
+          'still approve the price that reaches the customer.',
     },
   }
 

@@ -13,6 +13,7 @@ import type { Chunk } from './chunk'
 export interface IngestInput {
   agencyId: string
   sourceName: string
+  sha256: string
   /** Extracted text. The file it came from is already gone — see migration 0015. */
   bodyText: string
   chunks: readonly Chunk[]
@@ -29,40 +30,123 @@ export interface IngestInput {
 export async function ingestDocument(
   userId: string,
   input: IngestInput,
-): Promise<{ documentId: string; chunkCount: number } | null> {
+): Promise<{ documentId: string; chunkCount: number; duplicate: boolean } | null> {
   if (!hasDatabase()) return null
 
   return withUser(userId, async (client) => {
-    await client.query('begin')
-    try {
-      const doc = await client.query(
-        `insert into knowledge_documents (agency_id, source_name, body_text, chunk_count)
-         values ($1, $2, $3, $4) returning id`,
-        [input.agencyId, input.sourceName, input.bodyText, input.chunks.length],
+    // `withUser` already owns the transaction. Starting a second transaction here
+    // commits the outer one early in PostgreSQL and drops the RLS identity before
+    // the callback returns.
+    const doc = await client.query<{ id: string }>(
+      `insert into knowledge_documents
+         (agency_id, source_name, sha256, body_text, chunk_count)
+       values ($1, $2, $3, $4, $5)
+       on conflict (agency_id, sha256) where sha256 is not null do nothing
+       returning id`,
+      [input.agencyId, input.sourceName, input.sha256, input.bodyText, input.chunks.length],
+    )
+
+    if (!doc.rows[0]) {
+      const existing = await client.query<{ id: string; chunk_count: number }>(
+        `select id, chunk_count
+           from knowledge_documents
+          where agency_id = $1 and sha256 = $2
+          limit 1`,
+        [input.agencyId, input.sha256],
       )
-      const documentId = String(doc.rows[0].id)
-
-      for (const chunk of input.chunks) {
-        await client.query(
-          `insert into knowledge_chunks
-             (agency_id, document_id, ordinal, body_text, context_prefix)
-           values ($1, $2, $3, $4, $5)`,
-          [
-            input.agencyId,
-            documentId,
-            chunk.ordinal,
-            chunk.text,
-            input.prefixes?.get(chunk.ordinal) ?? null,
-          ],
-        )
-      }
-
-      await client.query('commit')
-      return { documentId, chunkCount: input.chunks.length }
-    } catch (error) {
-      await client.query('rollback')
-      throw error
+      const row = existing.rows[0]
+      if (!row) throw new Error('duplicate knowledge document could not be resolved')
+      return { documentId: row.id, chunkCount: Number(row.chunk_count), duplicate: true }
     }
+
+    const documentId = doc.rows[0].id
+    for (const chunk of input.chunks) {
+      await client.query(
+        `insert into knowledge_chunks
+           (agency_id, document_id, ordinal, body_text, context_prefix)
+         values ($1, $2, $3, $4, $5)`,
+        [
+          input.agencyId,
+          documentId,
+          chunk.ordinal,
+          chunk.text,
+          input.prefixes?.get(chunk.ordinal) ?? null,
+        ],
+      )
+    }
+
+    return { documentId, chunkCount: input.chunks.length, duplicate: false }
+  })
+}
+
+export interface KnowledgeDocumentSummary {
+  documentId: string
+  sourceName: string
+  chunkCount: number
+  ingestedAt: string
+}
+
+export async function findKnowledgeDocumentByHash(
+  userId: string,
+  sha256: string,
+): Promise<KnowledgeDocumentSummary | null> {
+  if (!hasDatabase()) return null
+
+  return withUser(userId, async (client) => {
+    const result = await client.query<{
+      id: string
+      source_name: string
+      chunk_count: number
+      ingested_at: Date | string
+    }>(
+      `select id, source_name, chunk_count, ingested_at
+         from knowledge_documents
+        where sha256 = $1
+        limit 1`,
+      [sha256],
+    )
+    const row = result.rows[0]
+    if (!row) return null
+    return {
+      documentId: row.id,
+      sourceName: row.source_name,
+      chunkCount: Number(row.chunk_count),
+      ingestedAt:
+        row.ingested_at instanceof Date ? row.ingested_at.toISOString() : String(row.ingested_at),
+    }
+  })
+}
+
+export async function listKnowledgeDocuments(userId: string): Promise<KnowledgeDocumentSummary[]> {
+  if (!hasDatabase()) return []
+
+  return withUser(userId, async (client) => {
+    const result = await client.query<{
+      id: string
+      source_name: string
+      chunk_count: number
+      ingested_at: Date | string
+    }>(
+      `select id, source_name, chunk_count, ingested_at
+         from knowledge_documents
+        where kind = 'past_offer'
+        order by ingested_at desc, id`,
+    )
+    return result.rows.map((row) => ({
+      documentId: row.id,
+      sourceName: row.source_name,
+      chunkCount: Number(row.chunk_count),
+      ingestedAt:
+        row.ingested_at instanceof Date ? row.ingested_at.toISOString() : String(row.ingested_at),
+    }))
+  })
+}
+
+export async function deleteKnowledgeDocument(userId: string, documentId: string): Promise<boolean> {
+  if (!hasDatabase()) return false
+  return withUser(userId, async (client) => {
+    const result = await client.query('delete from knowledge_documents where id = $1', [documentId])
+    return result.rowCount === 1
   })
 }
 

@@ -51,7 +51,7 @@ interface Props {
 }
 
 export function GuardrailFormClient({ initial, duringOnboarding }: Props) {
-  const [values, setValues] = useState(initial)
+  const [values, setValues] = useState({ ...initial, autoSendEnabled: false })
   const [problems, setProblems] = useState<GuardrailProblem[]>([])
   const [formError, setFormError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -152,8 +152,9 @@ export function GuardrailFormClient({ initial, duringOnboarding }: Props) {
       <input
         type="checkbox"
         className={styles.checkbox}
-        checked={values[key]}
-        onChange={(e) => set(key, e.target.checked)}
+          checked={values[key]}
+          onChange={(e) => set(key, e.target.checked)}
+          disabled={key === 'autoSendEnabled'}
         aria-label={copy[key].label}
       />
     </Setting>
@@ -168,7 +169,7 @@ export function GuardrailFormClient({ initial, duringOnboarding }: Props) {
       )}
 
       <section className={styles.group}>
-        <h2 className={styles.groupTitle}>Was darf ohne Sie rausgehen?</h2>
+          <h2 className={styles.groupTitle}>Was landet bei Ihnen zur Prüfung?</h2>
         <div className={styles.settings}>
           {toggle('autoSendEnabled')}
           {money('maxAutoQuoteValue')}

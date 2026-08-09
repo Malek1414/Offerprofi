@@ -82,7 +82,7 @@ export async function onboardingState(userId: string): Promise<OnboardingState> 
       guardrails_set: boolean
     }>(
       `select
-         (select count(*) from onboarding_assets where kind = 'past_quote')          as past_quotes,
+           (select count(*) from knowledge_documents where kind = 'past_offer')        as past_quotes,
          (select count(*) from catalog_items where confirmed_at is not null)         as confirmed_items,
          (select count(*) from catalog_items i
             where i.confirmed_at is not null
@@ -101,6 +101,45 @@ export async function onboardingState(userId: string): Promise<OnboardingState> 
       brandConfirmed: Boolean(row?.brand_confirmed),
       guardrailsSet: Boolean(row?.guardrails_set),
     }
+  })
+}
+
+export interface BrandProfileRow {
+  colorPrimary: string | null
+  confirmed: boolean
+}
+
+export async function loadBrandProfile(
+  userId: string,
+  agencyId: string,
+): Promise<BrandProfileRow | null> {
+  return withUser(userId, async (client) => {
+    const result = await client.query<{ color_primary: string | null; confirmed_at: Date | null }>(
+      `select color_primary, confirmed_at
+         from brand_profiles
+        where agency_id = $1
+        limit 1`,
+      [agencyId],
+    )
+    const row = result.rows[0]
+    return row ? { colorPrimary: row.color_primary, confirmed: Boolean(row.confirmed_at) } : null
+  })
+}
+
+export async function saveBrandProfile(
+  userId: string,
+  agencyId: string,
+  colorPrimary: string,
+): Promise<void> {
+  await withUser(userId, async (client) => {
+    await client.query(
+      `insert into brand_profiles (agency_id, color_primary, confirmed_at)
+       values ($1, $2, clock_timestamp())
+       on conflict (agency_id) do update set
+         color_primary = excluded.color_primary,
+         confirmed_at = excluded.confirmed_at`,
+      [agencyId, colorPrimary],
+    )
   })
 }
 

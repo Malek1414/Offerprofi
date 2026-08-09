@@ -64,10 +64,10 @@ export default async function GuardrailsPage() {
         </Link>
 
         <h1 className={styles.title}>Ihre Grenzen</h1>
-        <p className={styles.lede}>
-          Sie legen fest, wie weit der Assistent in Ihrem Namen gehen darf. Alles außerhalb
-          dieser Grenzen entscheiden Sie selbst.
-        </p>
+          <p className={styles.lede}>
+            Sie legen fest, welche Vorschläge der Assistent für Sie vorbereiten darf. Das Angebot
+            an die Kundin geben weiterhin Sie frei.
+          </p>
 
         {/* The sentence that buys the three minutes: it tells her she may skip. */}
         <p className={styles.reassure}>

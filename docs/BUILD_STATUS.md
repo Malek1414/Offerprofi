@@ -5,8 +5,8 @@ Updated 2026-08-09.
 
 ## Verified working
 
-`npm run verify` — typecheck, lint and **580 tests**, all green. `npm run test:db` applies
-all fifteen migrations to a scratch PostgreSQL and runs **two assertion suites** against it.
+`npm run verify` — typecheck, lint and **588 tests**, all green. `npm run test:db` applies
+all seventeen migrations to a scratch PostgreSQL and runs **two assertion suites** against it.
 `npm run build` produces a clean production build. `npm run dev` then `/q/demo` renders a
 real quote priced by the real engine, `/a/{slug}` runs the hosted chat for **any real
 tenant** against the real endpoint, and `/signup` and `/login` render the owner-side auth
@@ -88,6 +88,9 @@ request path, not just in a test).
 | F4.14 six invariants | **Done** | Named tests, all failing loudly on regression |
 | F4.15 escalation, never refusal | **Done** | `escalate` is one of exactly two evaluator outcomes |
 | F2.13 guardrail form | **Done** | Nine of twelve settings, screen S15. The other three are F4.11 calendar work and Phase 10 channels. Copy tested against I1 |
+| Owner document onboarding | **Done** | `/onboarding/uploads`: PDF/TXT extraction, validation, tenant-scoped de-duplication, chunking, contextual prefixes, storage, listing and deletion. Original binaries are discarded |
+| Owner brand onboarding | **Done** | `/onboarding/brand`: persisted colour, accessible live preview and wordmark fallback |
+| Legal routes | **Partial** | `/datenschutz`, `/impressum` and `/agb` resolve and state the factual processing behavior. Operator details, legal bases, retention and final wording require configuration/counsel |
 | F5.1 gapless numbering | **Schema** | `allocate_quote_number()` under a row lock; not yet called from application code |
 | F5.2 web quote | **Done** | Screen S26, server-rendered, responsive, print stylesheet |
 | F5.4 §14 UStG content | **Done** | Rendered; not yet reviewed by counsel |
@@ -133,7 +136,8 @@ Everything else in the inventory. Named explicitly rather than left to inference
 - **Phase 6** negotiation loop, escalation handling, owner dashboard, handoff.
 - **Phase 7** email in and out, follow-ups, SLA timers, paste-in.
 - **Phase 8** Stripe.
-- **Phase 9** GDPR surfaces.
+- **Phase 9** export/deletion workflows and counsel-approved GDPR operations. The linked
+  privacy, imprint and terms surfaces now exist and clearly mark every unconfigured fact.
 - **Phases 10–12** Slack, Gmail OAuth, WhatsApp.
 
 ## Known gaps in what *is* built
@@ -168,16 +172,16 @@ Everything else in the inventory. Named explicitly rather than left to inference
 7. **The rate limiter is process-local.** Correct on one instance; under-counts across
    several. Tolerable only because it throttles and never refuses — see the reasoning
    in `src/chat/rate-limit.ts`. Needs a shared store before it guards anything harder.
-8. **Uploads have policy but no plumbing.** Sniffing, limits and the scan gate are
-   written and tested; signed Storage URLs, the malware scanner and the upload UI
-   (screen S6) are not built.
+8. **Customer attachment uploads have policy but no plumbing.** The owner knowledge-upload
+   flow is complete without object storage: it parses PDF/TXT in memory, saves extracted
+   text and discards the binary. Customer message attachments still need signed URLs,
+   scanning and storage if that feature is enabled later.
 9. **`CHAT_SESSION_SECRET` must be set** or the message endpoint throws. Deliberate —
    a predictable signing key is no key. `.env.local` carries a dev value; production
    needs a real one.
-10. ~~Signup and login have nowhere to land.~~ **Closed 2026-08-09.** `/` is now a
-    router that sends an owner to `/onboarding` or the inbox by her state, and
-    `/onboarding` exists. The inbox is still Phase 6, so a *completed* owner has
-    nowhere to go — but no new signup can reach that state yet.
+10. ~~Signup and login have nowhere to land.~~ **Closed 2026-08-09.** `/` routes an
+    incomplete owner to `/onboarding` and a 5/5 owner to the working `/inbox`; both paths
+    were walked in a real browser.
 11. **No email verification and no password reset.** Both need outbound email
     (Phase 7). Until then an address is trusted as typed, and an owner who forgets her
     password has no self-service route back in. Stated on the signup screen rather
@@ -190,12 +194,21 @@ Everything else in the inventory. Named explicitly rather than left to inference
     `--window-size=430` clip the page, but that is an artifact of the layout viewport
     not following the flag — the pre-existing quote page clips identically — not a
     CSS overflow bug.
-14. **`ANTHROPIC_API_KEY` is not set anywhere, and the qualifying loop is the first
+14. ~~Four linked routes 404.~~ **Closed 2026-08-09.** `/datenschutz`, `/impressum`,
+    `/onboarding/uploads` and `/onboarding/brand` now resolve; `/agb`, discovered through
+    the signup/legal-link audit, was added too.
+15. ~~The product has no name.~~ **Closed 2026-08-09.** The default product name is
+    **Offerprofi**, with environment overrides still available for white-labelling.
+16. ~~Phase C has no UI.~~ **Closed 2026-08-09.** The owner upload screen now drives real
+    extraction, chunking, contextual prefixing, storage, listing, deletion and onboarding
+    progress. It intentionally stores text rather than original files.
+17. **`ANTHROPIC_API_KEY` is not set anywhere, and the qualifying loop is the first
     thing that needs it.** Without it `callModel` returns `not_configured`, so every
     turn escalates and the customer is told a person is taking over. That is the
     designed failure and it was verified end to end against real rows — but it is not
-    a demo. Setting the key is one line in `.env.local`, and it is the only thing
-    between the wiring and the headline promise.
+    a model-backed demo. Setting the key is one line in `.env.local`, and it is the only
+    missing input for the model path. Public launch separately requires production hosting,
+    secrets and legally reviewed operator text.
 
 ## Decisions taken during the build
 

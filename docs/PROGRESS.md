@@ -22,6 +22,27 @@
 > it renders as a suggested price with a per-service breakdown and his profit margin. A
 > wrong number in front of a customer is a lost deal; the same number in front of the
 > caterer is a suggestion he overrules in three seconds.
+
+> ## ✅ OFFERPROFI COMPLETION PASS — 2026-08-09
+>
+> The product now has a name and the previously missing owner surfaces are live:
+> `/onboarding/uploads`, `/onboarding/brand`, `/datenschutz`, `/impressum` and the
+> additionally discovered `/agb`. Uploads accept PDF/TXT, extract and chunk text, discard
+> the original binary, de-duplicate per tenant and feed the existing sparse retrieval layer.
+> Brand colour is persisted with a live accessible preview; a wordmark remains the safe
+> fallback until logo storage is deliberately added.
+>
+> Owner onboarding was walked in a real browser from 2/5 to 5/5: brand confirmation, three
+> document uploads, owner-review guardrails, root redirect and inbox. The customer chat's
+> privacy and imprint links were also opened in-browser. The guardrail default now enforces
+> the actual launch promise: the assistant qualifies and prepares a calculation, but the
+> caterer approves every customer-facing price.
+>
+> `npm run verify`, `npm run test:db`, `npm run build` and `npm audit` are the release gates.
+> The only missing input for the model-backed local flow is `ANTHROPIC_API_KEY`. A public
+> deployment still needs ordinary operator inputs that code cannot invent: hosted EU
+> PostgreSQL, production secrets/domain, the legal operator fields and counsel-approved
+> legal wording.
 >
 > ### Done so far
 >
@@ -92,7 +113,58 @@
 > - Outbound turns are **still not stored.** The transcript sent to the model is the customer's
 >   half only, which is consistent — but the caterer will eventually read this thread.
 
-> ## ⚑ THE ONE THING BETWEEN THIS AND A DEMO — read before anything else
+> ## ✅ RESOLVED HISTORICAL HANDOFF — what stood between this and a demo
+>
+> **This section records the corrected handoff that triggered the Offerprofi completion
+> pass above. All four missing routes and the naming decision are now closed.**
+> A correction was recorded because the previous version of this section was wrong.
+> It claimed the API key was the only thing left. The *customer-side* flow — chat →
+> qualify → send → two documents → the owner's inbox — is genuinely key-only, and every
+> screen of it was walked end to end in a browser against real rows. **The owner-side
+> onboarding flow is not.** Four routes 404, and three of them are linked from controls
+> that are on screen right now:
+>
+> | 404 | Linked from | Why it matters |
+> |---|---|---|
+> | `/datenschutz` | **The chat, at first contact** — this is F1.13, the Art. 13 privacy link | The only gap here with a legal consequence rather than a cosmetic one |
+> | `/impressum` | Chat footer, every conversation | §5 TMG |
+> | `/onboarding/uploads` | The **"Angebote hochladen" button** on the checklist, and the signup page's own promise | Breaks onboarding step 1 |
+> | `/onboarding/brand` | The **"Logo und Farbe" button** on the same checklist | Breaks onboarding step 4 |
+>
+> **Two more that were not named and should have been:**
+>
+> - **The product still has no name.** `{BRAND}` renders on `/signup` and `/login`. Open
+>   question #1 has been marked blocking since before any of this work started, and four
+>   sessions have walked past it. It is three environment variables (`src/lib/branding.ts`).
+> - **Phase C has no UI.** The chunking, prefixing, storage and retrieval all landed and are
+>   tested — and there is no screen to upload a document, so the whole layer is reachable
+>   only from code. "Phase C is built" is true of the engine and false of the product.
+>
+> **A false alarm worth not re-investigating:** `/onboarding/guardrails` returns 500 in dev
+> with `Cannot find module './vendor-chunks/@anthropic-ai.js'`. It is a stale dev chunk, not
+> a defect — `rm -rf .next` and restart fixes it, the production build compiles clean, and
+> this is the same family as the CSS-module quirk recorded at the bottom of this file.
+>
+> ### The former next-session list — completed
+>
+> 1. **`/datenschutz` and `/impressum`.** The privacy page needs counsel for the substantive
+>    wording — that is open question #2 and engineering cannot close it. What engineering
+>    *can* do is build the page with the factual processing description, which is derivable
+>    from the schema (what is stored, where, which sub-processors, what is deliberately not
+>    stored), and mark the rest as gaps rather than inventing legal text. **Do not fabricate
+>    a Datenschutzerklärung.** A page with honest gaps beats both a 404 and a confident
+>    fiction.
+> 2. **`/onboarding/uploads`** — now cheap, because the ingestion pipeline landed
+>    2026-08-09. Upload → parse to text → `chunkDocument` → `contextualisePrefixes` →
+>    `ingestDocument`. All four exist and are tested; the screen is what is missing.
+> 3. **`/onboarding/brand`** — a small form. Colour and logo; logo needs object storage, so
+>    ship colour first and let the wordmark stand in, which is what the quote page already
+>    does.
+> 4. **Pick a name.**
+>
+> ---
+>
+> ## The API key — the final model-path input
 >
 > **`ANTHROPIC_API_KEY` is set nowhere.** Every screen below works and was walked in a
 > browser against real rows, but two spots are model-gated and currently show their
@@ -106,7 +178,8 @@
 >    eindeutig"*. The engine, the margins and the rendering are all finished and tested;
 >    nothing chooses the line items.
 >
-> Set the key and both light up. Nothing else is required.
+> Set the key and both light up in the local product. Public launch configuration and legal
+> sign-off remain external operator work, not unfinished application routes.
 >
 > **To walk the flows:** `psql -d angebot_dev -f scripts/seed-demo.sql`, then
 > `npm run dev`. Sign in as `johannes@krautundrueben.test` / `DemoPasswort2026!`,

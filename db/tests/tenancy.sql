@@ -1130,4 +1130,54 @@ end $$;
 
 reset role;
 
+-- ─── Owner onboarding writes: owner-only and document-deduplicated ─────────
+
+insert into users (id, email, password_hash)
+values ('33333333-3333-3333-3333-333333333333', 'team@example.test', 'not-a-real-hash');
+insert into agency_members (agency_id, user_id, role)
+values ('aaaaaaaa-0000-0000-0000-000000000001', '33333333-3333-3333-3333-333333333333', 'member');
+
+set role app_login;
+
+do $$
+begin
+  perform set_config('app.current_user_id', '33333333-3333-3333-3333-333333333333', false);
+
+  begin
+    insert into brand_profiles (agency_id, color_primary, confirmed_at)
+    values ('aaaaaaaa-0000-0000-0000-000000000001', '#123456', clock_timestamp());
+    raise exception 'F6.15: a member changed the agency brand';
+  exception
+    when insufficient_privilege then
+      raise notice 'PASS F6.15 — only an owner may change the agency brand';
+  end;
+
+  begin
+    insert into knowledge_documents (agency_id, source_name, sha256, body_text)
+    values ('aaaaaaaa-0000-0000-0000-000000000001', 'member.pdf', repeat('a', 64), 'forbidden');
+    raise exception 'F6.15: a member changed the onboarding knowledge base';
+  exception
+    when insufficient_privilege then
+      raise notice 'PASS F6.15 — only an owner may change onboarding knowledge';
+  end;
+
+  perform set_config('app.current_user_id', '11111111-1111-1111-1111-111111111111', false);
+  insert into brand_profiles (agency_id, color_primary, confirmed_at)
+  values ('aaaaaaaa-0000-0000-0000-000000000001', '#2F6F4F', clock_timestamp());
+
+  insert into knowledge_documents (agency_id, source_name, sha256, body_text)
+  values ('aaaaaaaa-0000-0000-0000-000000000001', 'owner.pdf', repeat('b', 64), 'allowed');
+
+  begin
+    insert into knowledge_documents (agency_id, source_name, sha256, body_text)
+    values ('aaaaaaaa-0000-0000-0000-000000000001', 'duplicate.pdf', repeat('b', 64), 'duplicate');
+    raise exception 'Phase C UI: a duplicate document was stored twice';
+  exception
+    when unique_violation then
+      raise notice 'PASS Phase C UI — identical uploads are deduplicated per agency';
+  end;
+end $$;
+
+reset role;
+
 select 'ALL DATABASE ASSERTIONS PASSED' as result;

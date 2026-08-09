@@ -33,10 +33,10 @@ export const metadata: Metadata = {
 
 /** Where each outstanding requirement sends the owner, and what the button says. */
 const ACTIONS: Record<RequirementId, { href: string; label: string } | null> = {
-  past_quotes: { href: '/onboarding/uploads', label: 'Angebote hochladen' },
+  past_quotes: { href: '/onboarding/uploads', label: 'Angebote indexieren' },
   confirmed_items: { href: '/onboarding/catalogue', label: 'Leistungen anlegen' },
   price_rules: { href: '/onboarding/catalogue', label: 'Preise hinterlegen' },
-  brand: { href: '/onboarding/brand', label: 'Logo und Farbe' },
+  brand: { href: '/onboarding/brand', label: 'Markenauftritt festlegen' },
   guardrails: { href: '/onboarding/guardrails', label: 'Grenzen festlegen' },
 }
 
@@ -75,12 +75,11 @@ export default async function OnboardingPage() {
             {progress.complete ? 'Sie sind startklar' : 'Noch ein paar Schritte'}
           </h1>
           <p className={styles.lede}>
-            {progress.complete
-              ? 'Ihr Katalog steht. Ab jetzt können Anfragen hereinkommen — jede wird sofort ' +
-                'beantwortet und nach Ihren Preisen kalkuliert.'
-              : 'Danach beantwortet der Assistent Anfragen selbstständig und kalkuliert sie ' +
-                'nach Ihren eigenen Preisen. Sie bestätigen am Ende — nichts geht ungeprüft ' +
-                'hinaus.'}
+              {progress.complete
+                ? 'Ihr Katalog steht. Ab jetzt qualifiziert der Assistent neue Anfragen und ' +
+                  'bereitet für Sie eine Kalkulationshilfe vor. Erst Sie geben das Angebot frei.'
+                : 'Danach qualifiziert der Assistent Anfragen und bereitet eine Kalkulationshilfe ' +
+                  'nach Ihren eigenen Preisen vor. Erst Sie entscheiden, was an die Kundin geht.'}
           </p>
         </header>
 
@@ -167,8 +166,8 @@ export default async function OnboardingPage() {
           </code>
           {isPlaceholderBranding(brand) && (
             <p className={styles.placeholderNote}>
-              Diese Installation läuft noch auf einer Platzhalter-Adresse. Der Link funktioniert
-              erst, wenn die endgültige Domain eingetragen ist.
+                Diese Installation läuft lokal. Für einen öffentlichen Link tragen Sie beim
+                Deployment die endgültige Domain ein.
             </p>
           )}
         </section>
