@@ -6,7 +6,7 @@ Updated 2026-08-09.
 ## Verified working
 
 `npm run verify` — typecheck, lint and **368 tests**, all green. `npm run test:db` applies
-all six migrations to a scratch PostgreSQL and runs **two assertion suites** against it.
+all seven migrations to a scratch PostgreSQL and runs **two assertion suites** against it.
 `npm run build` produces a clean production build. `npm run dev` then `/q/demo` renders a
 real quote priced by the real engine, `/a/{slug}` runs the hosted chat for **any real
 tenant** against the real endpoint, and `/signup` and `/login` render the owner-side auth
@@ -25,14 +25,14 @@ request path, not just in a test).
 
 | Feature | State | Notes |
 |---|---|---|
-| F1.1 envelope | **Done** | Type + zod schema + idempotency. 11 tests |
+| F1.1 envelope | **Done** | Type + zod schema + idempotency, now enforced by the unique index rather than only modelled: a replayed turn creates no second inquiry and no second message. 11 tests + 1 DB assertion |
 | F1.2 adapter registry (X1) | **Done** | Pure `payload → InboundEvent`; contract violations throw. 16 tests |
 | F1.3 hosted_chat adapter | **Done** | Client clock distrusted; tenant never from payload |
 | F1.4 `/a/{slug}` | **Done** | Resolved against the database via `resolve_public_agency`, a SECURITY DEFINER function returning a fixed stranger-visible column list. Neutral 404; suspended and nonexistent are indistinguishable. 3 DB assertions, including that `agency_slugs` is **not** directly readable without an identity |
-| F1.5 sessions | **Partial** | Token mint/hash/sign/verify done and tested. No `chat_sessions` row — needs the database |
+| F1.5 sessions | **Done** | `chat_sessions` row written per session; a returning cookie keeps its inquiry and its transcript. 2 DB assertions |
 | F1.6 rate limiting | **Partial** | Throttle-never-refuse, tunable, logged. Process-local map; needs a shared store for >1 instance |
 | F1.7 SSE streaming | **Done** | Frame-safe client parser; typing indicator; no blank wait state |
-| F1.8 AI disclosure | **Done** | First turn + persistent header label. Versioned; **storing** the record needs the database |
+| F1.8 AI disclosure | **Done** | First turn + persistent header label. The exact text shown is stored in `disclosure_records`, once per inquiry even under replay — so what a given customer saw on a given date is provable (I6) |
 | F1.9 instant ack | **Done** | Ordering enforced by `AckPlan`, asserted by test |
 | F1.10 uploads | **Partial** | Sniffing, limits and the scan gate done and tested. No signed URLs, no storage, no scanner |
 | F1.11 abuse controls | **Done** | Honeypot, timing, cap, spam → tray. No CAPTCHA. 14 tests |
@@ -141,11 +141,14 @@ Everything else in the inventory. Named explicitly rather than left to inference
    all three migrations to a scratch database and runs 8 assertions against real
    Postgres. It needs a running server, so it is deliberately not part of
    `npm run verify` — CI must provide a Postgres service for it.
-6. **Nothing in the chat is persisted.** The envelope is built and validated on every
-   turn and then dropped (`void event` in the route). No `inquiries`, `messages`,
-   `chat_sessions` or `disclosure_records` rows are written, so a returning customer
-   gets a *session* but not a *transcript* — F1.5's "the thread is intact" is only
-   half met. Every insertion point is marked `TODO(Phase 1, database)`.
+6. ~~Nothing in the chat is persisted.~~ **Closed 2026-08-09.** A turn writes its
+   `inquiries`, `messages`, `chat_sessions` and `disclosure_records` rows through
+   `record_inbound_chat_turn`. It runs **behind the first streamed chunk**, never in
+   front of it, so a slow database cannot move the F1.9 metric — and a failed write
+   is logged rather than shown, because the customer's message did arrive and
+   telling her otherwise would be false. What is still missing is the *outbound*
+   side: the agent's own turns are streamed but not stored, so the transcript
+   currently holds only the customer's half.
 7. **The rate limiter is process-local.** Correct on one instance; under-counts across
    several. Tolerable only because it throttles and never refuses — see the reasoning
    in `src/chat/rate-limit.ts`. Needs a shared store before it guards anything harder.

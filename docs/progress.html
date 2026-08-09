@@ -57,17 +57,17 @@
 <body>
 <div class="wrap">
   <h1>Build progress</h1>
-  <p class="sub">Quote automation for small event agencies · generated 2026-08-09 08:49</p>
+  <p class="sub">Quote automation for small event agencies · generated 2026-08-09 08:56</p>
 
   <div class="total">
     <div class="big">30<span>%</span></div>
-    <p class="of">46 of 154 features</p>
+    <p class="of">46.5 of 154 features</p>
     <div class="bar" role="img" aria-label="30 percent of the build complete">
       <div class="fill" style="width:30%"></div>
     </div>
     <div class="legend">
-      <span><b>40</b> done</span>
-      <span><b>12</b> partial</span>
+      <span><b>41</b> done</span>
+      <span><b>11</b> partial</span>
       <span><b>102</b> to go</span>
     </div>
   </div>
@@ -128,23 +128,23 @@
     <section class="phase">
       <div class="phase-head">
         <h2>Phase 1 <span class="phase-label">Envelope + hosted chat</span></h2>
-        <span class="phase-pct">90%</span>
+        <span class="phase-pct">93%</span>
       </div>
-      <div class="bar" role="img" aria-label="90 percent">
-        <div class="fill" style="width:90%"></div>
+      <div class="bar" role="img" aria-label="93 percent">
+        <div class="fill" style="width:93%"></div>
       </div>
-      <p class="tally">12 done · 3 partial · 15 total</p>
+      <p class="tally">13 done · 2 partial · 15 total</p>
       <details>
         <summary>features</summary>
         <ul class="features">
-          <li class="f done"><span class="dot"></span><b>F1.1</b> InboundEvent envelope — type + runtime schema, idempotent on idempotency_key<em>Type + zod schema + idempotency. 11 tests</em></li>
+          <li class="f done"><span class="dot"></span><b>F1.1</b> InboundEvent envelope — type + runtime schema, idempotent on idempotency_key<em>Type + zod schema + idempotency, now enforced by the unique index rather than only modelled: a replayed turn creates no second inquiry and no second message. 11 tests + 1 DB assertion</em></li>
           <li class="f done"><span class="dot"></span><b>F1.2</b> Adapter interface + registry (X1)<em>Pure payload → InboundEvent; contract violations throw. 16 tests</em></li>
           <li class="f done"><span class="dot"></span><b>F1.3</b> hosted_chat adapter<em>Client clock distrusted; tenant never from payload</em></li>
           <li class="f done"><span class="dot"></span><b>F1.4</b> Public route /a/{slug} — server resolves slug → agency_id, never accepts agency_id from the client. Branded with agency logo/colours<em>Resolved against the database via resolve_public_agency, a SECURITY DEFINER function returning a fixed stranger-visible column list. Neutral 404; suspended and nonexistent are indistinguishable. 3 DB assertions, including that agency_slugs is not directly readable without an identity</em></li>
-          <li class="f partial"><span class="dot"></span><b>F1.5</b> Session — signed HTTP-only cookie + resumable link token, chat_sessions row<em>Token mint/hash/sign/verify done and tested. No chat_sessions row — needs the database</em></li>
+          <li class="f done"><span class="dot"></span><b>F1.5</b> Session — signed HTTP-only cookie + resumable link token, chat_sessions row<em>chat_sessions row written per session; a returning cookie keeps its inquiry and its transcript. 2 DB assertions</em></li>
           <li class="f partial"><span class="dot"></span><b>F1.6</b> Message endpoint, rate-limited per IP and per session<em>Throttle-never-refuse, tunable, logged. Process-local map; needs a shared store for &gt;1 instance</em></li>
           <li class="f done"><span class="dot"></span><b>F1.7</b> Streaming responses (SSE) + typing indicator<em>Frame-safe client parser; typing indicator; no blank wait state</em></li>
-          <li class="f done"><span class="dot"></span><b>F1.8</b> AI disclosure (D25, I6) — first assistant turn, persistent chat-header label, disclosure text versioned and stored with the conversation<em>First turn + persistent header label. Versioned; storing the record needs the database</em></li>
+          <li class="f done"><span class="dot"></span><b>F1.8</b> AI disclosure (D25, I6) — first assistant turn, persistent chat-header label, disclosure text versioned and stored with the conversation<em>First turn + persistent header label. The exact text shown is stored in disclosure_records, once per inquiry even under replay — so what a given customer saw on a given date is provable (I6)</em></li>
           <li class="f done"><span class="dot"></span><b>F1.9</b> Instant ack — under 10s p95, decoupled from extraction<em>Ordering enforced by AckPlan, asserted by test</em></li>
           <li class="f partial"><span class="dot"></span><b>F1.10</b> Uploads — signed URL to Storage, MIME by content sniffing, 25 MB/file, 10/inquiry, malware scan, processing gated on scan_status = clean<em>Sniffing, limits and the scan gate done and tested. No signed URLs, no storage, no scanner</em></li>
           <li class="f done"><span class="dot"></span><b>F1.11</b> Abuse controls — honeypot + timing checks (no CAPTCHA), per-agency daily cap with owner alert, spam classifier routes to a tray<em>Honeypot, timing, cap, spam → tray. No CAPTCHA. 14 tests</em></li>

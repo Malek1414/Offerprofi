@@ -261,6 +261,100 @@ begin
   raise notice 'PASS F1.4 — suspended and nonexistent are indistinguishable';
 end $$;
 
+-- ─── F1.1 / F1.5 / F1.8: a chat turn is written down, and replay is a no-op ──
+--
+-- Still with no identity. This is the customer's path.
+
+-- The writes run as the customer does — app_login, no identity. The *assertions*
+-- cannot: RLS correctly hides messages and disclosure_records from a caller with no
+-- membership, so counting them here would read 0 whether or not the rows exist and
+-- the test would pass for the wrong reason. Writes below, checks after `reset role`.
+
+do $$
+declare
+  first_inquiry uuid;
+  replay_inquiry uuid;
+  second_inquiry uuid;
+  is_new boolean;
+begin
+  perform set_config('app.current_user_id', '', false);
+
+  select r.inquiry_id into first_inquiry
+    from public.record_inbound_chat_turn(
+      'aaaaaaaa-0000-0000-0000-000000000001', 'hash-session-1', now() + interval '14 days',
+      'ext-msg-1', 'Wir heiraten im Juni.', 'v1', 'de', 'sie', 'Ich bin der KI-Assistent.') r;
+
+  select r.inquiry_id, r.is_new_inquiry into replay_inquiry, is_new
+    from public.record_inbound_chat_turn(
+      'aaaaaaaa-0000-0000-0000-000000000001', 'hash-session-1', now() + interval '14 days',
+      'ext-msg-2', 'Und Catering?') r;
+
+  if replay_inquiry <> first_inquiry then
+    raise exception 'F1.5: a second turn on the same session got a different inquiry';
+  end if;
+  if is_new then
+    raise exception 'F1.5: a second turn on the same session started a new inquiry';
+  end if;
+  raise notice 'PASS F1.5 — a returning session keeps its inquiry';
+
+  -- Replay: the customer's phone re-POSTs a turn whose response never arrived, and
+  -- passes the disclosure again because it believes this is still the first turn.
+  select r.inquiry_id into replay_inquiry
+    from public.record_inbound_chat_turn(
+      'aaaaaaaa-0000-0000-0000-000000000001', 'hash-session-1', now() + interval '14 days',
+      'ext-msg-2', 'Und Catering?', 'v1', 'de', 'sie', 'Ich bin der KI-Assistent.') r;
+
+  if replay_inquiry <> first_inquiry then
+    raise exception 'F1.1: replay produced a different inquiry';
+  end if;
+
+  -- A different session is a different customer and must not join the thread.
+  select r.inquiry_id into second_inquiry
+    from public.record_inbound_chat_turn(
+      'aaaaaaaa-0000-0000-0000-000000000001', 'hash-session-2', now() + interval '14 days',
+      'ext-msg-3', 'Ganz andere Anfrage.') r;
+
+  if second_inquiry = first_inquiry then
+    raise exception 'F1.5: a different session joined an existing inquiry';
+  end if;
+  raise notice 'PASS F1.5 — a different session gets its own inquiry';
+end $$;
+
 reset role;
+
+do $$
+declare
+  first_inquiry uuid;
+  msgs int;
+  discs int;
+  not_new int;
+begin
+  select cs.inquiry_id into first_inquiry
+    from chat_sessions cs where cs.session_token_hash = 'hash-session-1';
+
+  select count(*) into msgs from messages where inquiry_id = first_inquiry;
+  if msgs <> 2 then
+    raise exception 'F1.1: replay created a duplicate message (% rows, expected 2)', msgs;
+  end if;
+  raise notice 'PASS F1.1 — replaying a turn creates no second inquiry and no second message';
+
+  -- I6: disclosed once, recorded once, even though the replay passed it again.
+  select count(*) into discs from disclosure_records where inquiry_id = first_inquiry;
+  if discs <> 1 then
+    raise exception 'I6: expected exactly one disclosure record, found %', discs;
+  end if;
+  raise notice 'PASS I6 — the disclosure is recorded exactly once per inquiry';
+
+  -- I1 at the storage layer: `record_inbound_chat_turn` has no argument that can
+  -- set any state but new, so no caller can persist a turn as already refused.
+  select count(*) into not_new from inquiries i
+    join chat_sessions cs on cs.inquiry_id = i.id
+   where cs.session_token_hash in ('hash-session-1', 'hash-session-2')
+     and i.state <> 'new';
+  if not_new <> 0 then
+    raise exception 'I1: a persisted chat turn landed in a state other than new';
+  end if;
+  raise notice 'PASS I1 — a persisted chat turn can only land in state new';
+end $$;
 
 select 'ALL DATABASE ASSERTIONS PASSED' as result;

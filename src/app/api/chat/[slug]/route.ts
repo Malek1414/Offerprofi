@@ -19,8 +19,11 @@ import { acknowledgeInquiry } from '../../../../chat/ack'
 import { triageInbound } from '../../../../chat/abuse'
 import { composeAgentTurns, streamChunks } from '../../../../chat/conversation'
 import { RateLimiter } from '../../../../chat/rate-limit'
+import { recordChatTurnDetached } from '../../../../chat/persistence'
 import {
   SESSION_COOKIE_NAME,
+  SESSION_TTL_MS,
+  hashSessionToken,
   mintSession,
   sessionCookieOptions,
   signSessionCookie,
@@ -146,11 +149,6 @@ export async function POST(
     },
   )
 
-  // TODO(Phase 1, database): persist the envelope idempotently on
-  // idempotencyKey, upsert the inquiry and write the message row. The unique index
-  // on messages.external_message_id is what actually makes replay a no-op.
-  void event
-
   const ack = acknowledgeInquiry({
     agencyName: agency.name,
     ownerName: agency.ownerName,
@@ -172,7 +170,38 @@ export async function POST(
     automationPaused: requestHuman,
   })
 
-  const stream = streamTurns(turns)
+  // F1.5 / F1.8 / F1.1 — written down *behind* the acknowledgement, never in front
+  // of it. `streamTurns` calls this once the first chunk is on the wire, so a slow
+  // database cannot move the metric F1.9 exists to protect. The token hash is the
+  // session identity; the raw token stays in the cookie and is never stored.
+  const persist = () =>
+    recordChatTurnDetached({
+      agencyId: agency.id,
+      sessionTokenHash: minted ? minted.tokenHash : hashSessionToken(token),
+      // A returning customer's window is extended from this turn, so a conversation
+      // she keeps coming back to does not expire underneath her mid-thread.
+      resumableUntil:
+        minted?.resumableUntil ?? new Date(now.getTime() + SESSION_TTL_MS).toISOString(),
+      // The envelope's key, not the client's turn id — the adapter is what decides
+      // what counts as one message, and the unique index is on this value.
+      externalMessageId: event.idempotencyKey,
+      bodyText: text,
+      // Only on the turn that actually showed it. `composeAgentTurns` leads with the
+      // disclosure exactly when this is the first turn, so the two agree by
+      // construction rather than by two separate conditions drifting apart.
+      ...(turns.some((t) => t.kind === 'disclosure')
+        ? {
+            disclosure: {
+              version: ack.disclosure.version,
+              language: voice.language,
+              formality: voice.formality,
+              textShown: ack.disclosure.openingLine,
+            },
+          }
+        : {}),
+    })
+
+  const stream = streamTurns(turns, persist)
 
   const headers = new Headers({
     'Content-Type': 'text/event-stream; charset=utf-8',
@@ -196,19 +225,34 @@ export async function POST(
   return response
 }
 
-/** SSE frames: one `turn` event per message, `chunk` events inside it, then `done`. */
-function streamTurns(turns: { kind: string; text: string }[]): ReadableStream<Uint8Array> {
+/**
+ * SSE frames: one `turn` event per message, `chunk` events inside it, then `done`.
+ *
+ * `afterFirstChunk` runs once, immediately after the customer has something on
+ * screen. That is the ordering F1.9 requires — anything slow belongs behind it, and
+ * putting the hook here rather than at the call site means it cannot accidentally be
+ * awaited before the stream is returned.
+ */
+function streamTurns(
+  turns: { kind: string; text: string }[],
+  afterFirstChunk?: () => void,
+): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder()
   return new ReadableStream({
     async start(controller) {
       const send = (event: string, data: unknown) => {
         controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`))
       }
+      let started = false
       try {
         for (const turn of turns) {
           send('turn', { kind: turn.kind })
           for (const chunk of streamChunks(turn.text)) {
             send('chunk', { text: chunk })
+            if (!started) {
+              started = true
+              afterFirstChunk?.()
+            }
             // A short pause per chunk so the text arrives at a readable pace rather
             // than in one frame. Cosmetic now; when Phase 3 puts a model behind this
             // the cadence comes from the model and this goes away.
