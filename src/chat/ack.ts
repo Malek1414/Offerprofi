@@ -111,12 +111,12 @@ function ackText(params: AckParams): string {
             `Sie erhalten in der Regel innerhalb von ${slaHours} Stunden eine Rückmeldung.`
     }
     return du
-      ? `Danke dir! Deine Anfrage ist angekommen. Ich stelle dir gleich ein passendes Angebot ` +
-          `zusammen — ${ownerName} schaut vor der Bestätigung persönlich drüber. Spätestens in ` +
-          `${slaHours} Stunden hörst du von uns.`
-      : `Vielen Dank! Ihre Anfrage ist angekommen. Ich stelle Ihnen gleich ein passendes Angebot ` +
-          `zusammen — ${ownerName} schaut vor der Bestätigung persönlich drüber. Spätestens in ` +
-          `${slaHours} Stunden hören Sie von uns.`
+      ? `Danke dir! Deine Anfrage ist angekommen. Ich erfasse jetzt die Eckdaten und ` +
+          `offenen Fragen. ${ownerName} prüft alles persönlich und meldet sich spätestens ` +
+          `innerhalb von ${slaHours} Stunden.`
+      : `Vielen Dank! Ihre Anfrage ist angekommen. Ich erfasse jetzt die Eckdaten und ` +
+          `offenen Fragen. ${ownerName} prüft alles persönlich und meldet sich spätestens ` +
+          `innerhalb von ${slaHours} Stunden.`
   }
 
   if (params.automationPaused) {
@@ -132,9 +132,9 @@ function ackText(params: AckParams): string {
     )
   }
   return (
-    `Thank you! Your inquiry has arrived. I'll put a quote together for you now — ` +
-    `${ownerName} reviews it personally before anything is confirmed. You'll hear ` +
-    `from us within ${slaHours} hours at the latest.`
+    `Thank you! Your inquiry has arrived. I'll capture the key details and any open ` +
+    `questions now. ${ownerName} reviews everything personally and will respond within ` +
+    `${slaHours} hours at the latest.`
   )
 }
 

@@ -5,6 +5,8 @@ import {
   buildInstruction,
   buildRequest,
   completenessOf,
+  expandExtractionPayload,
+  extractionOutputSchema,
   mergeRequest,
   overallConfidenceOf,
 } from '../../src/agent/extraction'
@@ -28,7 +30,7 @@ function payload(overrides: Partial<ExtractionPayload> = {}): ExtractionPayload 
     budget_indication: null,
     requested_items: [],
     special_requirements: [],
-    contact: { name: null, email: null, phone: null, role: null, company: null, vat_id: null },
+    contact: { name: '', email: '', phone: '', role: '', company: '', vat_id: '' },
     injection_suspected: false,
     injection_note: null,
     ...overrides,
@@ -39,6 +41,76 @@ const ctx = {
   transcript: 'Wir heiraten im Juni und suchen ein Catering. Können Sie uns helfen?',
   model: 'claude-opus-5',
 }
+
+function countUnionParameters(value: unknown): number {
+  if (Array.isArray(value)) {
+    return value.reduce((total, item) => total + countUnionParameters(item), 0)
+  }
+  if (!value || typeof value !== 'object') return 0
+
+  const node = value as Record<string, unknown>
+  const unionHere = Array.isArray(node.anyOf) || Array.isArray(node.type) ? 1 : 0
+  return unionHere + Object.values(node).reduce<number>(
+    (total, item) => total + countUnionParameters(item),
+    0,
+  )
+}
+
+describe('Anthropic structured-output compatibility', () => {
+  it('stays within the provider limit of 16 union-typed parameters', () => {
+    expect(countUnionParameters(extractionOutputSchema())).toBeLessThanOrEqual(16)
+  })
+
+  it('expands the compact fact list into typed, provenance-carrying fields', () => {
+    const expanded = expandExtractionPayload({
+      facts: [
+        { field: 'occasion', value: 'wedding', confidence: 0.98, source: 'msg_1' },
+        { field: 'headcount', value: '120', confidence: 1, source: 'msg_1' },
+        { field: 'date_flexible', value: 'false', confidence: 0.8, source: 'msg_1' },
+        { field: 'budget_total', value: '9000', confidence: 1, source: 'msg_1' },
+      ],
+      dietary: ['vegetarisch'],
+      equipment_needed: [],
+      requested_items: ['Getränkeservice'],
+      special_requirements: [],
+      contact: {
+        name: 'Anna Keller',
+        email: 'anna@example.com',
+        phone: '',
+        role: '',
+        company: '',
+        vat_id: '',
+      },
+      injection_suspected: false,
+      injection_note: '',
+    })
+
+    expect(expanded.occasion?.value).toBe('wedding')
+    expect(expanded.headcount).toEqual({ value: 120, confidence: 1, source: 'msg_1' })
+    expect(expanded.date_flexible?.value).toBe(false)
+    expect(expanded.budget_indication?.value).toEqual({ amount: 9000, basis: 'total' })
+    expect(expanded.injection_note).toBeNull()
+  })
+
+  it('drops malformed typed facts instead of trusting provider strings', () => {
+    const expanded = expandExtractionPayload({
+      facts: [
+        { field: 'headcount', value: 'about one hundred', confidence: 1, source: 'msg_1' },
+        { field: 'service_style', value: 'invented_style', confidence: 1, source: 'msg_1' },
+      ],
+      dietary: [],
+      equipment_needed: [],
+      requested_items: [],
+      special_requirements: [],
+      contact: { name: '', email: '', phone: '', role: '', company: '', vat_id: '' },
+      injection_suspected: false,
+      injection_note: '',
+    })
+
+    expect(expanded.headcount).toBeNull()
+    expect(expanded.service_style).toBeNull()
+  })
+})
 
 describe('buildRequest', () => {
   it('turns a payload into a request with confidence and provenance on every field', () => {
@@ -147,8 +219,8 @@ describe('Invariant 2 — contact never joins the request', () => {
           email: 'sarah@example.de',
           phone: '+4917612345678',
           role: 'bride',
-          company: null,
-          vat_id: null,
+          company: '',
+          vat_id: '',
         },
       }),
       ctx,

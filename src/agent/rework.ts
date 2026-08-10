@@ -34,6 +34,7 @@ import type { Formality, Language } from '../domain/event-brief'
 import { type ModelFailureKind, callModel, jsonSchemaFor } from './client'
 import type { UntrustedDocument } from './prompt'
 import { renderState } from './qualify'
+import { normaliseModelText } from './text'
 
 export const REWORK_VERSION = '2026-08-09.1'
 
@@ -141,8 +142,8 @@ export async function reworkReply(input: ReworkRequest): Promise<ReworkOutcome> 
 
   return {
     ok: true,
-    message: payload.message.trim(),
-    openPoints: payload.openPoints.map((p) => p.trim()).filter(Boolean),
+    message: normaliseModelText(payload.message),
+    openPoints: payload.openPoints.map(normaliseModelText).filter(Boolean),
     unsupportedFigures: unsupportedFigures(payload.message, input.ownerReply),
     needsOwnerReview: true,
     runId: outcome.runId,

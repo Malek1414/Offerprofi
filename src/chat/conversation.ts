@@ -74,7 +74,13 @@ export function composeAgentTurns(input: ComposeInput): AgentTurn[] {
     return turns
   }
 
-  turns.push({ kind: 'ack', text: input.ack.ackText })
+  turns.push({
+    kind: 'ack',
+    text:
+      input.isFirstTurn || input.triage.handling === 'owner_tray'
+        ? input.ack.ackText
+        : continuationAck(input.language, input.formality),
+  })
 
   if (input.rate.outcome === 'accept_throttled') {
     turns.push({
@@ -84,6 +90,17 @@ export function composeAgentTurns(input: ComposeInput): AgentTurn[] {
   }
 
   return turns
+}
+
+/** Later turns need confirmation, not the full first-contact SLA repeated verbatim. */
+export function continuationAck(
+  language: Language,
+  formality: Exclude<Formality, 'unknown'>,
+): string {
+  if (language === 'de') {
+    return formality === 'du' ? 'Danke, ich habe das ergänzt.' : 'Vielen Dank, ich habe das ergänzt.'
+  }
+  return 'Thank you, I’ve added that.'
 }
 
 /**

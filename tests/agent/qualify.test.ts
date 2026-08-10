@@ -8,10 +8,12 @@ import {
   askableFields,
   buildInstruction,
   buildRole,
+  customerSummary,
   missingRequired,
   renderState,
   selectQuestions,
 } from '../../src/agent/qualify'
+import { normaliseModelText } from '../../src/agent/text'
 import type { CateringRequest } from '../../src/domain/catering-request'
 
 function request(overrides: Partial<CateringRequest> = {}): CateringRequest {
@@ -117,6 +119,75 @@ describe('selectQuestions', () => {
 
   it('drops an empty question', () => {
     expect(selectQuestions([{ field: 'headcount', text: '   ' }], askable)).toEqual([])
+  })
+
+  it('drops a bunched proposal containing more than one question', () => {
+    expect(
+      selectQuestions(
+        [
+          {
+            field: 'headcount',
+            text: 'Wie viele Gäste kommen? Und wo findet die Feier statt?',
+          },
+        ],
+        askable,
+      ),
+    ).toEqual([])
+  })
+
+  it('drops an overlong proposal instead of truncating customer-facing prose', () => {
+    expect(
+      selectQuestions(
+        [{ field: 'headcount', text: `${'Sehr ausführlich. '.repeat(30)}Wie viele Gäste?` }],
+        askable,
+      ),
+    ).toEqual([])
+  })
+
+  it('repairs escaped, double-decoded German before it reaches the customer', () => {
+    const corrupted =
+      'Vielen Dank f\\u00c3\\u00bcr die Details \\u00e2\\u0080\\u0093 wie viele G\\u00c3\\u00a4ste?'
+
+    expect(normaliseModelText(corrupted)).toBe(
+      'Vielen Dank für die Details – wie viele Gäste?',
+    )
+  })
+
+  it('leaves correctly encoded multilingual prose unchanged', () => {
+    const correct = 'Vielen Dank – für José und 李.'
+    expect(normaliseModelText(correct)).toBe(correct)
+  })
+})
+
+describe('customerSummary', () => {
+  it('is a grounded, scannable list built from typed request rows', () => {
+    const summary = customerSummary(
+      request({
+        occasion: { value: 'wedding', confidence: 1, source: 'm1', sourceKind: 'ai' },
+        dietary: ['vegetarisch'],
+        requestedItems: ['Getränkeservice'],
+      }),
+    )
+
+    expect(summary).toContain('Das habe ich verstanden:\n\n• Anlass: Hochzeit')
+    expect(summary).toContain('\n• Ernährung: vegetarisch')
+    expect(summary).toContain('\n• Gewünscht: Getränkeservice')
+    expect(summary).not.toContain('Sektempfang')
+  })
+
+  it('never repeats the customer budget in her summary', () => {
+    const summary = customerSummary(
+      request({
+        budgetIndication: {
+          value: { amount: 9000, currency: 'EUR', basis: 'total' },
+          confidence: 1,
+          source: 'm1',
+          sourceKind: 'ai',
+        },
+      }),
+    )
+
+    expect(summary).not.toMatch(/9[.\s]?000|EUR|Budget/)
   })
 })
 

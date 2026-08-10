@@ -174,7 +174,7 @@ export async function runQualifyingTurn(input: QualifyingTurnInput): Promise<Age
   }
 
   const text = outcome.questions.length
-    ? outcome.questions.map((q) => q.text).join(' ')
+    ? outcome.questions.map((q) => q.text).join('\n\n')
     : // The model returned nothing usable. Rather than an empty bubble or an
       // escalation over a formatting slip, ask for the first missing field in our
       // own words — the fields are known, the wording is the only thing the model

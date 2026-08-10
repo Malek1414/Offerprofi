@@ -38,13 +38,16 @@ import {
   type RequiredRequestField,
   evaluateRequest,
 } from '../domain/catering-request'
+import { requestRows } from '../requests/summary'
 import { type ModelFailureKind, callModel, jsonSchemaFor } from './client'
 import type { UntrustedDocument } from './prompt'
+import { normaliseModelText } from './text'
 
-export const QUALIFY_VERSION = '2026-08-09.1'
+export const QUALIFY_VERSION = '2026-08-10.2'
 
 /** Two at a time. Three reads as an interrogation and she stops answering. */
 export const MAX_QUESTIONS_PER_TURN = 2
+export const MAX_QUESTION_CHARS = 280
 
 /** How much transcript to send. A qualifying conversation is short; the state carries the rest. */
 export const TRANSCRIPT_WINDOW = 10
@@ -72,8 +75,6 @@ const QualifyPayloadSchema = z.object({
    * outcomes, a question or a summary, and neither of them is "no".
    */
   questions: z.array(z.object({ field: z.string(), text: z.string() })),
-  /** What we have so far, in her language, for her to check. */
-  summary: z.string(),
 })
 
 export type QualifyPayload = z.infer<typeof QualifyPayloadSchema>
@@ -136,6 +137,21 @@ export async function qualify(input: QualifyInput): Promise<QualifyOutcome> {
   const readyToSend = missing.length === 0
   const askable = askableFields(input.request)
 
+  // Once code says the request is ready, no prose-generation call is needed. The
+  // summary comes from the typed request, so it cannot invent a service, condition,
+  // contact detail or location caveat, and its layout is stable on every run.
+  if (readyToSend) {
+    return {
+      ok: true,
+      readyToSend: true,
+      questions: [],
+      summary: customerSummary(input.request),
+      missingRequired: [],
+      runId: null,
+      costMicroCents: null,
+    }
+  }
+
   const documents: UntrustedDocument[] = input.messages
     .slice(-TRANSCRIPT_WINDOW)
     .map((m) => ({ id: m.id, source: 'customer_message', text: m.text }))
@@ -174,7 +190,7 @@ export async function qualify(input: QualifyInput): Promise<QualifyOutcome> {
     // something she already told us reads as not listening, which is the fastest way
     // to lose a conversation this product exists to keep.
     questions: readyToSend ? [] : selectQuestions(payload.questions, askable),
-    summary: payload.summary.trim(),
+    summary: '',
     missingRequired: missing,
     runId: outcome.runId,
     costMicroCents: outcome.costMicroCents,
@@ -191,12 +207,23 @@ export function selectQuestions(
 
   for (const q of proposed) {
     if (!allowed.has(q.field) || seen.has(q.field)) continue
-    if (!q.text.trim()) continue
+    const text = normaliseModelText(q.text)
+    if (!text) continue
+    if (text.length > MAX_QUESTION_CHARS) continue
+    if ((text.match(/\?/g)?.length ?? 0) > 1) continue
     seen.add(q.field)
-    kept.push({ field: q.field as AskableField, text: q.text.trim() })
+    kept.push({ field: q.field as AskableField, text })
     if (kept.length === MAX_QUESTIONS_PER_TURN) break
   }
   return kept
+}
+
+/** A compact, grounded recap from the same rows used in the request document. */
+export function customerSummary(request: CateringRequest): string {
+  const language = request.language === 'en' ? 'en' : 'de'
+  const rows = requestRows(request, 'customer', language)
+  const heading = language === 'de' ? 'Das habe ich verstanden:' : 'Here’s what I understood:'
+  return [heading, '', ...rows.map((row) => `• ${row.label}: ${row.value}`)].join('\n')
 }
 
 // ── Prompt ───────────────────────────────────────────────────────────────────
@@ -314,13 +341,13 @@ export function buildInstruction(
       '- Ask about what is genuinely still open. Never ask about something already',
       '  listed above — she told you once and asking again reads as not listening.',
       '- One field per question, and set `field` to the exact name from the list.',
-      '- Write them the way a person would ask, not as form labels. Two short questions',
-      '  in one message is fine; a numbered list of five is an interrogation.',
+      '- Write them the way a person would ask, not as form labels. Each question text',
+      '  must contain exactly one question, one question mark, and no more than 280',
+      '  characters. Never join a second question with "and", "und" or a new clause.',
+      '- A brief acknowledgement plus one concise question is enough. No numbered list,',
+      '  no markdown, no filler and no recap of details that are not needed for it.',
       '- If she has just said something significant, acknowledge it in a few words',
       '  before asking. She is describing her wedding, not filling in a ticket.',
-      '',
-      'Also write the summary field: a brief recap of what you have so far. It is not',
-      'shown to her yet, so keep it factual and short.',
     )
   }
 

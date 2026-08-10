@@ -9,6 +9,7 @@ import { triageInbound } from '../../src/chat/abuse'
 import {
   type ComposeInput,
   composeAgentTurns,
+  continuationAck,
   handoffNotice,
   humanRequestedNotice,
   missingFieldQuestion,
@@ -74,6 +75,15 @@ describe('F1.8 — the disclosure leads', () => {
   it('precedes the acknowledgement on the first turn', () => {
     const kinds = composeAgentTurns(input()).map((t) => t.kind)
     expect(kinds.indexOf('disclosure')).toBeLessThan(kinds.indexOf('ack'))
+  })
+})
+
+describe('later-turn acknowledgement', () => {
+  it('does not repeat the full first-contact SLA on every answer', () => {
+    const turns = composeAgentTurns(input({ isFirstTurn: false }))
+    const ack = turns.find((turn) => turn.kind === 'ack')?.text ?? ''
+    expect(ack).toBe(continuationAck('de', 'sie'))
+    expect(ack).not.toMatch(/24|Anfrage ist angekommen|Angebot/)
   })
 })
 

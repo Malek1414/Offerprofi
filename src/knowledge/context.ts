@@ -23,6 +23,7 @@ import { z } from 'zod'
 
 import { type ModelFailureKind, callModel, jsonSchemaFor } from '../agent/client'
 import type { UntrustedDocument } from '../agent/prompt'
+import { normaliseModelText } from '../agent/text'
 import type { Chunk } from './chunk'
 
 /** One call per document, not per chunk. The model prefixes them all at once. */
@@ -91,7 +92,7 @@ export async function contextualisePrefixes(
     const payload = PrefixPayloadSchema.parse(JSON.parse(outcome.text))
     const prefixes = new Map<number, string>()
     for (const entry of payload.prefixes) {
-      const context = entry.context.trim()
+      const context = normaliseModelText(entry.context)
       if (context) prefixes.set(entry.ordinal, context)
     }
     return { ok: true, prefixes, costMicroCents: outcome.costMicroCents }
