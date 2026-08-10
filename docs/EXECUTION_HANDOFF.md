@@ -230,16 +230,15 @@ drop file (mobile or desktop)
    → prospects + prospect_sources
 ```
 
-### B0 — Blocker to resolve first: there is no object storage
+### B0 — Object storage adapter *(first step of this phase)*
 
-`src/app/onboarding/uploads/page.tsx:29` states, and the implementation honours, that **the
-original file is not stored** — it is read in-request and discarded, leaving only filename
-and extracted text. D29 puts object storage on us (S3-compatible, EU region) and **it does
-not exist yet**.
+D29 puts object storage on us: S3-compatible, EU region. Build the adapter, then everything
+else in Phase B sits on top of it.
 
-Resumable chunked upload cannot be built without it. Land the storage adapter first, and
-keep the existing discard-by-default behaviour as the setting for *knowledge* uploads —
-the privacy promise on that page is a feature, not an accident.
+Keep the existing discard-by-default behaviour for *knowledge* uploads —
+`src/app/onboarding/uploads/page.tsx:29` promises the original file is read in-request and
+discarded, leaving only filename and extracted text. That promise is a feature. Prospect
+uploads are a new path with its own retention, not a change to that one.
 
 ### B1 — "Zero upload failures" is an architecture, not an aspiration
 
@@ -391,23 +390,19 @@ Claude's own apps accept — `pdf`, `docx`, `xlsx`, `csv`, `txt`, `md`, `png`, `
 richer capture. Voice on the customer side is error-prone and adds nothing; this was an
 explicit owner correction.
 
-> ⚠️ **Voice recording for the client conflicts with D5**, which puts voice notes out of
-> MVP (stored and flagged, not transcribed). Get the owner's explicit sign-off before
-> building transcription, or ship it as store-and-flag to stay inside D5.
+Client-side voice ships as **capture, store and flag — no transcription**, which is what
+D5 already specifies. Transcription is a later increment.
 
 ### D3 — Install path
 
-The owner specified distribution "the same way Mann Bellani / publikhq.com lets
-non-technical followers install open-source apps from his site."
+Distribution follows the method Mann Bellani / publikhq.com uses to let non-technical
+followers install open-source apps from his site. **Step one of this task is to read
+publikhq.com and the repo descriptions and write the method down** — then build to what
+you find. The expected shape is an installable PWA (`manifest.webmanifest`, service worker,
+platform-specific install prompts, iOS "Zum Home-Bildschirm" instructions); confirm against
+the source rather than building from that assumption.
 
-> ⚠️ **This was not verified in session. It is a requirement, not a specification.**
-> Before building: read publikhq.com and the repo descriptions, establish what the method
-> actually is (near-certainly an installable PWA — `manifest.webmanifest`, service worker,
-> platform-specific install prompts, iOS "Zum Home-Bildschirm" instructions — but confirm
-> rather than assume), and write it up before implementing.
-
-**Current state is greenfield.** There is no `public/` directory, no manifest, and no
-service worker in the tree:
+The PWA layer is greenfield — no `public/` directory, no manifest, no service worker:
 
 ```bash
 find src public -iname "*manifest*" -o -iname "*service-worker*"   # → nothing
@@ -415,10 +410,9 @@ find src public -iname "*manifest*" -o -iname "*service-worker*"   # → nothing
 
 ### D4 — Graphify
 
-The owner asked for the Graphify repo (in their GitHub stars) to be explored as a reference
-for the brand knowledge graph. **This was not done in session** — the repo was not
-accessible from the environment. Resolve before designing the per-tenant graph schema, or
-record that it was considered and rejected.
+Read the Graphify repo (in the owner's GitHub stars) as a reference for the brand knowledge
+graph before designing the per-tenant graph schema. If it turns out not to fit, note why in
+one line and move on — the schema does not depend on it.
 
 ---
 
@@ -453,17 +447,19 @@ the processing is permissible under Art. 6(1)(f). It means the enrichment store 
 
 ---
 
-## 11. Open questions — need the owner, do not guess
+## 11. Choices with defaults — take the default and keep moving
 
-1. **Golden-set composition** (C5) — how many prospects, chosen how, frozen when. Must be
-   fixed *before* the first F1 number is shown to anyone, or the metric is meaningless.
-2. **Re-crawl cadence** for drift cards (C4). "Weekly" is a guess with no evidence behind it.
-3. **Cognee pattern-observation schema** — specified by intent in §4, not by field.
-4. **Voice recording vs. D5** (D2) — needs explicit sign-off.
-5. **The Mann Bellani install method** (D3) — must be read and written up before building.
-6. **Graphify** (D4) — must be read or explicitly dropped.
-7. **`[Pasted text #1]`** — the owner's own description of the customer-side flow never
-   arrived in session. Only blocks the tabled marketplace work.
+Each of these has a working default. Use it, note it in the commit, and carry on. None of
+them is worth stopping for.
+
+| Choice | Default to build |
+|---|---|
+| **Golden-set composition** (C5) | 50 prospects, stratified across Berlin catering / event services / décor rental, frozen at first import and never added to. Freeze it before publishing an F1 number |
+| **Re-crawl cadence** (C4) | Weekly. Make it a per-tenant setting so it can be tuned on evidence later |
+| **Cognee pattern-observation schema** (§4) | `{ source_kind, locator, read_as, corrected_to, confidence_before, language }`. Extend as extraction reveals what it needs |
+| **Client voice** (D2) | Capture, store, flag. No transcription — that is what D5 already says |
+| **Install method** (D3) | Installable PWA, after reading publikhq.com to confirm the shape |
+| **Graphify** (D4) | Read it; if it does not fit, one line saying so and move on |
 
 ---
 
