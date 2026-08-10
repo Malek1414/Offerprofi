@@ -73,7 +73,7 @@ export function LoginForm({ next }: Props) {
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate>
+    <form method="post" action="/api/auth/login" onSubmit={onSubmit} noValidate>
       {error && (
         <p className={styles.formError} role="alert">
           {error}

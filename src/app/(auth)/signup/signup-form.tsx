@@ -123,7 +123,7 @@ export function SignupForm({ chatDomain }: Props) {
   const slugProblem = problems.find((p) => p.field === 'slug')
 
   return (
-    <form onSubmit={onSubmit} noValidate>
+    <form method="post" action="/api/auth/signup" onSubmit={onSubmit} noValidate>
       {formError && (
         <p className={styles.formError} role="alert">
           {formError}
