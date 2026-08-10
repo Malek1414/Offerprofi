@@ -1,6 +1,143 @@
 # Progress and session handoff
 
-**Updated:** 2026-08-09
+**Updated:** 2026-08-10
+
+> ## ANTHROPIC LIVE QA, NLP REPAIR, AND READINESS SCORE — 2026-08-10
+>
+> **This section supersedes the historical statements below that say the Anthropic key is
+> missing.** A local key is now configured in the ignored `.env.local`; its value is not in
+> the repository. The real Claude path has been exercised from customer chat through send,
+> customer request document and owner inbox. Because the credential was pasted into a chat,
+> rotate it after this test session and replace the local/hosted secret before any pilot.
+>
+> ### Headline assessment
+>
+> **Current sell-readiness: 6.7/10.** On the requested scale, this is suitable for a small,
+> supervised design-partner or paid pilot, but it is not yet a self-serve product that can be
+> sold as flawless. **Model intelligence: 7.9/10; response sophistication: 7.6/10.** The
+> model now extracts and asks well, while application code owns completion, safety, layout
+> and the final recap. That division is materially more dependable than asking the model to
+> write the whole experience. Latency, evaluation breadth, transcript completeness and one
+> remaining class of semantic duplication keep the overall product below an 8.
+>
+> | Area | Score | Evidence and interpretation |
+> |---|---:|---|
+> | Fact extraction | **8.5/10** | Correctly recovered occasion, ISO date, headcount, full venue, service style, fulfilment, duration, staffing, diet, budget and contact across the live German scenarios. Unknown or malformed typed values are now dropped rather than coerced. |
+> | Question relevance | **7.8/10** | Questions were operationally useful and used prior answers. Code now limits each entry to one `?`, 280 characters and two entries per turn. The live result asked about delivery/service, dietary needs, exact venue and duration rather than repeating the required facts. |
+> | Language and character handling | **8.2/10** | Correct formal German and natural acknowledgements after repair. A shared boundary normalizer fixes literal `\\uXXXX` sequences and identifiable UTF-8-as-Latin-1 mojibake while leaving valid multilingual text unchanged. Broad native-speaker and multilingual sampling is still owed. |
+> | Grounding and hallucination control | **8.8/10** | Ready-state summaries are now deterministic rows from the typed request, not a second prose-generation call. This removed an invented reception detail, contact repetition, unsupported caveats and accidental verbosity seen in the first live test. Customer summaries still cannot expose budget. |
+> | Multi-turn continuity | **7.6/10** | Structured state correctly accumulated three customer turns and the owner received the final facts. Later turns now use a short acknowledgement instead of replaying the full first-contact promise. Assistant outbound messages are still not persisted for the owner's transcript, which is a real context gap. |
+> | Reliability and fail-safe behavior | **7.0/10** | The initial provider-schema failure handed the conversation to a person without exposing an exception. Provider success, send, customer document and owner inbox were then verified. Only two live scenarios have been sampled, so variance is not yet measured. |
+> | Speed and cost efficiency | **5.3/10** | The repaired three-turn journey completed in approximately **17.1 s, 13.1 s and 10.4 s** per turn after the instant acknowledgement. Five model calls consumed 9,628 input and 2,100 output tokens, logged 35.0 s cumulative provider latency, and cost **10.064 US cents**. Opus for sequential extraction plus question-writing is too slow and expensive to call top-tier without a routing eval. |
+>
+> ### First live test — what failed before the repairs
+>
+> 1. The API key, credits and `claude-opus-5` were valid: a minimal SDK structured-output
+>    call succeeded. The application extraction call did not. `agent_runs` recorded
+>    `failure:invalid_request` after 1,125 ms.
+> 2. Exact reproduction against the application schema found two provider compilation
+>    boundaries. The first shape contained 19 union parameters, above the provider limit of
+>    16. Removing nullable contact fields exposed a second error: the compiled grammar was
+>    still too large. Anthropic documents both restrictions under
+>    [structured-output limitations](https://platform.claude.com/docs/en/build-with-claude/structured-outputs#considerations-and-limitations).
+> 3. After the provider schema was made valid, the model extracted the first wedding request
+>    accurately, including 18 September 2027, 120 people, Berlin, vegetarian buffet,
+>    drinks, EUR 9,000 total and a contact kept separate from event facts.
+> 4. Response quality still failed the visual bar. A later question contained literal escape
+>    sequences and mojibake such as escaped German umlauts and a broken en dash. Questions
+>    could contain multiple clauses and appeared bunched together. The final free-written
+>    recap was far too long, repeated contact information, added caveats and invented a
+>    reception detail that the customer had not supplied.
+> 5. Local browser QA also discovered a separate credential-safety defect: when local
+>    development chunks were blocked for the `127.0.0.1` origin, an unhydrated password form
+>    fell back to GET and put fields in the URL. Auth forms now declare POST actions in HTML,
+>    and local QA explicitly allows that development origin.
+>
+> ### Repairs made
+>
+> - Replaced the provider-facing property-per-fact extraction shape with a compact `facts`
+>   list. Application code expands it into the existing rich `CateringRequest`, validates
+>   enum/number/boolean values and preserves the internal data contract. A regression test
+>   keeps the generated schema within Anthropic's union budget.
+> - Added `normaliseModelText` at all model-prose boundaries used by extraction,
+>   qualification, rework replies and knowledge prefixes. It performs bounded literal
+>   Unicode decoding and only accepts a Latin-1-to-UTF-8 repair when a mojibake score
+>   improves without creating replacement characters.
+> - Tightened question generation and filtering: one field and one question mark per entry,
+>   at most 280 characters, at most two questions, no filler/markdown/irrelevant recap, and
+>   blank-line separation in the chat bubble. Bad entries fall back to deterministic field
+>   wording rather than leaking awkward model text.
+> - Removed the model-written ready-state recap. The customer now receives a compact bullet
+>   summary built from the same typed rows as the request document. This also removes one
+>   model call from the final turn.
+> - Corrected acknowledgements so the assistant says it is collecting details for owner
+>   review, not already assembling a quote, and shortened continuation acknowledgements.
+> - Made login and signup safe before hydration with explicit POST form actions and allowed
+>   the alternate loopback origin used by browser QA.
+>
+> ### Second live test — repaired customer and owner journey
+>
+> A new customer entered a 60-person corporate event in Cologne for 3 October 2027 with
+> Fingerfood and contact details. The assistant asked two visually separated questions about
+> delivery/on-site service and dietary needs. After the answer, it asked for exact venue and
+> service duration. The third answer produced a grounded bullet recap and enabled send. The
+> request was submitted successfully; the customer document excluded budget/contact, and the
+> owner inbox showed Max Berger first with the correct contact, date, headcount, full venue,
+> service, meal, fulfilment, duration, staffing, diet and inbound transcript. Browser console:
+> **0 errors, 0 warnings**.
+>
+> The remaining visible NLP issue is semantic rather than character-level: `requestedItems`
+> can retain a customer's full sentence even when typed fields already represent its service,
+> fulfilment and staffing meaning. That produced a redundant `Gewünscht` row beside the
+> normalized rows. Nothing false was added, but semantic deduplication/summarization should be
+> evaluated before broad launch.
+>
+> ### Verification ledger
+>
+> - `npm run verify` — **passed**: TypeScript, ESLint, 48 test files, **600/600 tests**.
+> - `npm run test:db` — **passed** in a fresh scratch database: all 17 migrations and all
+>   signup, tenancy, invariant, request-link, retrieval and onboarding assertions.
+> - `npm run build` — **passed**: optimized Next.js production build and all routes.
+> - Live Anthropic diagnostic — **passed** after schema compaction; real structured extraction
+>   returned valid typed data.
+> - Customer Playwright journey — **passed**: three turns, correct Unicode and spacing,
+>   deterministic recap, send, customer request document.
+> - Owner Playwright journey — **passed**: login, inbox ordering and complete structured
+>   request; browser console clean.
+>
+> ### What blocks an 8–10/10 experience
+>
+> 1. **Build a repeatable NLP eval, not more anecdotes.** Run at least 50–100 versioned cases
+>    across German `Sie`/`du`, English, corrections, vague dates, pasted email signatures,
+>    dietary edge cases, emoji/Unicode, injections and hostile budgets. Score field precision
+>    and recall, unsupported facts, repeated questions, character corruption and ready-state
+>    correctness. Keep live provider results separate from deterministic unit tests.
+> 2. **Reduce completed-turn latency without lowering quality.** Benchmark Haiku/Sonnet for
+>    extraction and question wording, test model routing, reduce repeated prompt tokens, and
+>    consider combining or safely overlapping stages. Promote a cheaper/faster path only when
+>    the eval is non-regressive. Keep the immediate acknowledgement.
+> 3. **Persist assistant outbound turns.** The owner currently sees only customer messages,
+>    so the exact questions that elicited an answer are absent from the handoff transcript.
+> 4. **Normalize semantic duplication.** Preserve genuinely requested menu items while
+>    suppressing prose that merely restates service style, fulfilment or staffing.
+> 5. **Exercise production failure modes.** Measure retries, timeouts, rate limits, provider
+>    unavailability, concurrent sessions and p95/p99 latency. Add automated real-browser smoke
+>    coverage to CI and test on an actual narrow mobile viewport/device.
+> 6. **Close commercial/operator inputs.** Production secrets, hosted EU PostgreSQL,
+>    deployment/domain, verified legal operator fields and counsel-approved legal wording are
+>    outside this local pass and still gate a broad public sale.
+>
+> ### How the claimed credits/perks fit the product
+>
+> Anthropic credits now fund the core extraction and qualification path plus a controlled live
+> eval corpus; every model run already records purpose, model, token use, latency, cost and
+> content hashes so a pilot can enforce spend and quality gates. The claimed hosting,
+> database and storage perks should become separate preview and production environments: an
+> EU-hosted Postgres instance for migrations and tenant data, managed secret injection for the
+> rotated API key, application hosting with health/latency monitoring, and private object
+> storage only for future assets that truly need binary retention. Credits reduce pilot cost;
+> they do not replace provider configuration, data-processing review, backups, alerts or the
+> launch eval above.
 
 > ## ⚠⚠ THE SPEC PIVOTED ON 2026-08-09. READ THIS BEFORE ANYTHING ELSE.
 >

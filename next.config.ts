@@ -2,6 +2,10 @@ import type { NextConfig } from 'next'
 
 const config: NextConfig = {
   reactStrictMode: true,
+  // Browser-based local QA uses both spellings. Next treats 127.0.0.1 as a
+  // different development origin from localhost and otherwise blocks the client
+  // chunks, leaving interactive forms unhydrated.
+  allowedDevOrigins: ['127.0.0.1'],
   // This repo sits under a home directory that also has a lockfile; pin the root
   // so tracing does not wander up and pull in unrelated files.
   outputFileTracingRoot: import.meta.dirname,
