@@ -174,3 +174,94 @@ describe('modifier reasons are localised, never emitted by the engine', () => {
     })
   })
 })
+
+/**
+ * Owner-initiated sends (the execution button).
+ *
+ * Three of the rules gate automation rather than content: they exist to force a
+ * human to look before something goes out. When the human pressing the button is
+ * the one looking, firing them escalates an enquiry to the person already holding
+ * it — a state with no exit.
+ *
+ * The distinction being pinned here is precise, and the second block is the more
+ * important one: skipping the automation gates must not skip anything protecting
+ * the customer.
+ */
+describe('guardrails, owner-initiated', () => {
+  const dear = () =>
+    priceQuote(minimalPricingInput({ serviceIds: [ITEM_DECOR], guestCount: 400 }), minimalCatalogue())
+
+  it('escalates a quote above the auto-send ceiling when the agent is sending', () => {
+    const out = evaluateOutbound(
+      ctx({ quote: dear(), guardrails: { ...defaultGuardrails('a1'), maxAutoQuoteValue: eurosToCents(100) } }),
+    )
+    expect(out.action).toBe('escalate')
+    if (out.action === 'escalate') expect(out.reason).toBe('above_max_auto_quote_value')
+  })
+
+  it('sends the same quote when the owner is the one pressing the button', () => {
+    const out = evaluateOutbound(
+      ctx({
+        quote: dear(),
+        initiatedBy: 'owner',
+        guardrails: { ...defaultGuardrails('a1'), maxAutoQuoteValue: eurosToCents(100) },
+      }),
+    )
+    expect(out.action).toBe('send')
+  })
+
+  it('does not hold an owner-initiated quote because auto-send is off', () => {
+    // "Auto-send is off for your account, so this quote is waiting for you."
+    // He is here. He is not waiting for himself.
+    const out = evaluateOutbound(
+      ctx({ initiatedBy: 'owner', guardrails: { ...defaultGuardrails('a1'), autoSendEnabled: false } }),
+    )
+    expect(out.action).toBe('send')
+  })
+
+  it('does not hold an owner-initiated quote for being below the minimum order value', () => {
+    const out = evaluateOutbound(
+      ctx({
+        initiatedBy: 'owner',
+        guardrails: { ...defaultGuardrails('a1'), minOrderValue: eurosToCents(1_000_000) },
+      }),
+    )
+    expect(out.action).toBe('send')
+  })
+
+  it('still refuses an owner-initiated send after an opt-out', () => {
+    // An opt-out is a legal obligation, not a workflow gate. Nothing justifies a
+    // message after it — not even the owner asking for one.
+    const out = evaluateOutbound(ctx({ initiatedBy: 'owner', contactOptedOutAt: '2026-08-01T00:00:00Z' }))
+    expect(out.action).toBe('escalate')
+    if (out.action === 'escalate') expect(out.reason).toBe('sent_after_opt_out')
+  })
+
+  it('still refuses an owner-initiated send containing an invented service', () => {
+    const out = evaluateOutbound(
+      ctx({
+        initiatedBy: 'owner',
+        quote: { ...quote(), unknownServiceIds: ['feuerwerk'] },
+      }),
+    )
+    expect(out.action).toBe('escalate')
+    if (out.action === 'escalate') expect(out.reason).toBe('invented_service')
+  })
+
+  it('still refuses an owner-initiated send whose text carries a figure the engine never produced', () => {
+    const out = evaluateOutbound(
+      ctx({ initiatedBy: 'owner', messageText: 'Das machen wir für 950 € komplett.' }),
+    )
+    expect(out.action).toBe('escalate')
+    if (out.action === 'escalate') expect(out.reason).toBe('price_not_from_catalogue')
+  })
+
+  it('defaults to the agent rules when nothing says otherwise', () => {
+    // Every existing call site omits `initiatedBy`, and none of them may change
+    // behaviour because this field was added.
+    const out = evaluateOutbound(
+      ctx({ guardrails: { ...defaultGuardrails('a1'), autoSendEnabled: false } }),
+    )
+    expect(out.action).toBe('escalate')
+  })
+})

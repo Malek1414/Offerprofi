@@ -265,3 +265,99 @@
     gap: 0.1rem;
   }
 }
+
+/* ─── The execution button ──────────────────────────────────────────────────
+ *
+ * The one action on this screen, so it is the only element allowed to carry the
+ * agency's brand colour as a fill. Everything else on the page is achromatic
+ * chrome; a second filled button would make the owner choose between two things
+ * that look equally primary, and there is only one thing to do here.
+ *
+ * 2.75rem minimum height is 44px at the default root size — the touch target
+ * floor from D1. It is set as min-height rather than height so German labels,
+ * which run long, wrap instead of overflowing.
+ */
+.primaryAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.6rem 1.1rem;
+  margin-top: 0.75rem;
+  font: inherit;
+  font-size: var(--step-0);
+  color: var(--on-brand);
+  background: var(--brand);
+  border: 1px solid var(--brand);
+  border-radius: var(--radius);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.primaryAction:disabled {
+  cursor: progress;
+  opacity: 0.72;
+}
+
+.secondaryAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.6rem 1.1rem;
+  margin-top: 0.75rem;
+  font: inherit;
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+  background: var(--paper-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+/* Tabular figures, because this is the number the whole product exists to
+ * produce and a total that shifts width as it animates in reads as amateur. */
+.issuedTotal {
+  margin: 0.4rem 0 0;
+  font-family: var(--display);
+  font-size: var(--step-3);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.linkRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+/* A guardrail firing is the product working, not an error, so it is toned as a
+ * notice rather than a failure. Red here would teach the owner that the thing
+ * protecting him is a malfunction. */
+.held {
+  margin: 0.5rem 0 0;
+  padding: 0.7rem 0.85rem;
+  font-size: var(--step--1);
+  color: var(--warn-ink);
+  background: var(--warn-wash);
+  border-radius: var(--radius);
+}
+
+.blocked {
+  margin: 0.5rem 0 0;
+  padding: 0.7rem 0.85rem;
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+  background: var(--paper-sunk);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+@media (max-width: 30rem) {
+  /* Full width on a phone: the primary action should be reachable with a thumb
+   * without aiming. */
+  .primaryAction,
+  .secondaryAction {
+    width: 100%;
+  }
+}

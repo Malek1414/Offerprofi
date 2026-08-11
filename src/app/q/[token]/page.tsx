@@ -19,6 +19,8 @@ import {
   demoPricingInput,
   hasDatabase,
 } from '../../../lib/demo'
+import { isPlausibleQuoteToken } from '../../../quote/issue'
+import { rehydrateQuote, resolveQuoteLink } from '../../../quote/repository'
 import { QuoteDocument } from './quote-document'
 
 export default async function QuotePage({
@@ -27,6 +29,60 @@ export default async function QuotePage({
   params: Promise<{ token: string }>
 }) {
   const { token } = await params
+
+  // ─── The real path ────────────────────────────────────────────────────────
+  //
+  // A quote issued by the owner's button resolves here. The figures are read back
+  // exactly as they were written — not recomputed — because this document was
+  // issued on a date at a number and the customer was told it stands until
+  // `validUntil`. See the note in src/quote/repository.ts.
+  if (isPlausibleQuoteToken(token)) {
+    const resolved = await resolveQuoteLink(token)
+    if (!resolved) notFound()
+
+    const theme = buildAgencyTheme(resolved.agency.brandColor)
+    const legal = quoteLegalBlock(
+      {
+        agencyName: resolved.agency.name,
+        validUntil: resolved.validUntil,
+        language: resolved.agency.language,
+      },
+      resolved.agency.ownerName,
+    )
+
+    return (
+      <>
+        {/* AI Act Art. 50(2) — machine-readable marking of synthetic content (I6). */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(syntheticContentMarking(resolved.issuedAt)),
+          }}
+        />
+        <QuoteDocument
+          agency={{
+            name: resolved.agency.name,
+            legalName: resolved.agency.name,
+            address: [],
+            contact: '',
+            taxId: '',
+            logoUrl: null,
+            ownerName: resolved.agency.ownerName,
+          }}
+          theme={theme}
+          quote={rehydrateQuote(resolved)}
+          quoteNumber={resolved.quoteNumber}
+          issuedOn={resolved.issuedAt.slice(0, 10)}
+          validUntil={resolved.validUntil}
+          customerName=""
+          eventSummary=""
+          legal={legal}
+          language={resolved.agency.language}
+          state="sent"
+        />
+      </>
+    )
+  }
 
   // Until Postgres is provisioned, one well-known token renders the demo tenant so
   // the surface can be reviewed. With a database configured this branch is dead and

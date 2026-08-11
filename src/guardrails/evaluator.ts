@@ -49,6 +49,31 @@ export type GuardrailOutcome =
 
 export interface OutboundContext {
   guardrails: Guardrails
+  /**
+   * Who is sending this.
+   *
+   * ───────────────────────────────────────────────────────────────────────────
+   * THREE OF THE RULES BELOW GATE AUTOMATION, NOT CONTENT.
+   *
+   * `below_min_order_value` says "have a look — you may still want it".
+   * `above_max_auto_quote_value` says "review it and send when you are happy".
+   * `auto_send_disabled` says "this quote is waiting for you".
+   *
+   * All three exist to force a human to look before something goes out, and all
+   * three are already satisfied when the human is the one pressing the button.
+   * Firing them at an owner who is looking at the quote means escalating an
+   * enquiry to the person currently holding it, which is not a safeguard — it is
+   * a dead end with no way out of it.
+   *
+   * Every other rule here is about *content*: a figure the engine did not
+   * produce, a line under its floor, an invented service, a discount, an
+   * opt-out. Those protect the customer and apply identically no matter who
+   * pressed send, and none of them are skipped.
+   *
+   * Defaults to `'agent'`, so nothing that does not opt in changes behaviour.
+   * ───────────────────────────────────────────────────────────────────────────
+   */
+  initiatedBy?: 'agent' | 'owner'
   quote?: PricedQuote
   /** Draft text about to go to the customer. */
   messageText?: string
@@ -219,7 +244,13 @@ export function evaluateOutbound(ctx: OutboundContext): GuardrailOutcome {
 
     // Value bounds. Both escalate. Neither declines — that distinction is the whole
     // point of D23, and it is why `minOrderValue` no longer sends a polite refusal.
-    if (q.grossTotal < g.minOrderValue) {
+    //
+    // Both are skipped for an owner-initiated send: escalating to the person who
+    // is already holding the quote produces a state nobody can leave. See
+    // `initiatedBy` above.
+    const gatingAutomation = (ctx.initiatedBy ?? 'agent') === 'agent'
+
+    if (gatingAutomation && q.grossTotal < g.minOrderValue) {
       return fail(
         'below_min_order_value',
         `This enquiry prices at ${q.grossTotal / 100} EUR, below your ${g.minOrderValue / 100} EUR ` +
@@ -229,7 +260,7 @@ export function evaluateOutbound(ctx: OutboundContext): GuardrailOutcome {
     }
     pass('below_min_order_value')
 
-    if (q.grossTotal > g.maxAutoQuoteValue) {
+    if (gatingAutomation && q.grossTotal > g.maxAutoQuoteValue) {
       return fail(
         'above_max_auto_quote_value',
         `A quote of ${q.grossTotal / 100} EUR is above your ${g.maxAutoQuoteValue / 100} EUR ` +
@@ -250,7 +281,7 @@ export function evaluateOutbound(ctx: OutboundContext): GuardrailOutcome {
     }
     pass('committed_to_unavailable_date')
 
-    if (!g.autoSendEnabled) {
+    if (gatingAutomation && !g.autoSendEnabled) {
       return fail(
         'auto_send_disabled',
         'Auto-send is off for your account, so this quote is waiting for you.',

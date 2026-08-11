@@ -19,6 +19,7 @@ import { requireUserId } from '../../../auth/current-user'
 import { loadInquiry } from '../../../inbox/repository'
 import { relativeTime, stateLabel } from '../../../inbox/labels'
 import { requestRows } from '../../../requests/summary'
+import { IssueQuote } from './issue-quote'
 
 export const metadata: Metadata = {
   title: 'Anfrage',
@@ -112,6 +113,10 @@ export default async function InquiryPage({ params }: { params: Promise<{ id: st
           ) : null}
         </section>
 
+        {/* Above the transcript on purpose. On a phone the transcript is long, and
+            the one thing he came here to do must not be below it. */}
+        <IssueQuote inquiryId={inquiry.inquiryId} />
+
         <section className={styles.panel}>
           <h2 className={styles.panelTitle}>Verlauf</h2>
           {inquiry.messages.length ? (
@@ -130,12 +135,6 @@ export default async function InquiryPage({ params }: { params: Promise<{ id: st
           ) : (
             <p className={styles.note}>Keine gespeicherten Nachrichten.</p>
           )}
-          {/* Honest about a real gap rather than letting him wonder why the
-              assistant's half is missing. */}
-          <p className={styles.note}>
-            Gespeichert werden derzeit die Nachrichten der Kundin; die Antworten des
-            Assistenten noch nicht.
-          </p>
         </section>
       </div>
     </main>
