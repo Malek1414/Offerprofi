@@ -1,0 +1,284 @@
+/*
+ * The upload screen.
+ *
+ * Every state a file can be in has a visible resting place, because B1's promise
+ * is that a failure is recoverable and *visible*. The consequence for the layout
+ * is that nothing here collapses or animates away — a row that disappears when it
+ * succeeds trains the caterer to watch the screen instead of trusting it.
+ *
+ * Controls are >=44px in their smallest dimension (D1). This screen is used
+ * one-handed, standing up, holding a phone.
+ */
+
+.wrap {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 1.25rem 1rem 4rem;
+}
+
+.header {
+  margin-bottom: 1.25rem;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--display);
+  font-size: var(--step-2);
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.sub {
+  margin: 0.35rem 0 0;
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+}
+
+/* ─── Drop zone ───────────────────────────────────────────────────────────── */
+
+.drop {
+  padding: 1.75rem 1rem;
+  text-align: center;
+  background: var(--paper-sunk);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  transition: border-color 120ms ease-out, background-color 120ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drop {
+    transition: none;
+  }
+}
+
+.dropActive {
+  background: var(--brand-wash);
+  border-color: var(--brand);
+}
+
+.dropText {
+  margin: 0 0 0.75rem;
+  font-size: var(--step-0);
+  color: var(--ink-soft);
+}
+
+.dropHint {
+  margin: 0.6rem 0 0;
+  font-size: var(--step--1);
+  color: var(--ink-faint);
+}
+
+/* Visually hidden rather than display:none — a hidden input is not focusable and
+ * cannot be triggered by the button on some assistive setups. */
+.hiddenInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ─── Buttons ─────────────────────────────────────────────────────────────── */
+
+.primary,
+.secondary,
+.recording {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 2.75rem;
+  padding: 0.6rem 1.1rem;
+  font: inherit;
+  font-size: var(--step-0);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.primary {
+  color: var(--on-brand);
+  background: var(--brand);
+  border: 1px solid var(--brand);
+}
+
+.secondary {
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+  background: var(--paper-raised);
+  border: 1px solid var(--line-strong);
+}
+
+.recording {
+  font-size: var(--step--1);
+  color: var(--warn-ink);
+  background: var(--warn-wash);
+  border: 1px solid var(--warn-ink);
+}
+
+/* The one blinking thing in the product. It earns it: a microphone that is on
+ * without the person knowing is the failure this indicator exists to prevent. */
+.dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  background: currentColor;
+  border-radius: 50%;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot {
+    animation: none;
+  }
+}
+
+/* ─── Voice ───────────────────────────────────────────────────────────────── */
+
+.voice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+/* ─── Sections and rows ───────────────────────────────────────────────────── */
+
+.section {
+  margin-top: 1.75rem;
+}
+
+.sectionTitle {
+  margin: 0 0 0.6rem;
+  font-size: var(--step-0);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.notice {
+  margin: 1rem 0 0;
+  padding: 0.7rem 0.85rem;
+  font-size: var(--step--1);
+  color: var(--warn-ink);
+  background: var(--warn-wash);
+  border-radius: var(--radius);
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row,
+.job {
+  padding: 0.75rem 0.9rem;
+  margin-bottom: 0.6rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.rowTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.name {
+  font-size: var(--step-0);
+  color: var(--ink);
+  /* German filenames are long and phones are narrow. Breaking anywhere beats a
+   * row that pushes the size off the edge of the screen. */
+  overflow-wrap: anywhere;
+}
+
+.size,
+.pct {
+  font-size: var(--step--1);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-mute);
+  white-space: nowrap;
+}
+
+.bar {
+  height: 4px;
+  margin-top: 0.5rem;
+  background: var(--paper-sunk);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.barFill {
+  display: block;
+  height: 100%;
+  background: var(--brand);
+  transition: width 160ms linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .barFill {
+    transition: none;
+  }
+}
+
+.rowNote {
+  margin: 0.4rem 0 0;
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+}
+
+.state {
+  margin: 0.35rem 0 0;
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+}
+
+/* Toned as a notice rather than an alarm. A failed upload is expected
+ * occasionally and is recoverable; red would make an ordinary event look like a
+ * broken product. */
+.stateFailed {
+  color: var(--warn-ink);
+}
+
+.reason {
+  margin: 0.4rem 0 0.6rem;
+  padding: 0.55rem 0.7rem;
+  font-size: var(--step--1);
+  color: var(--warn-ink);
+  background: var(--warn-wash);
+  border-radius: var(--radius);
+}
+
+.empty {
+  margin: 0;
+  font-size: var(--step--1);
+  color: var(--ink-faint);
+}
+
+@media (max-width: 30rem) {
+  .primary,
+  .secondary,
+  .recording {
+    width: 100%;
+  }
+
+  .voice {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
