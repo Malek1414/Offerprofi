@@ -60,7 +60,9 @@ npm run progress    # generates docs/progress.html       → 33% of 154 features
 | Phase 1 | complete |
 | Phase 2 | half built |
 | Phase 4 | 80% |
-| Migrations | `0001` … `0017` — new work starts at `0018` |
+| Migrations | `0001` … `0019` — new work starts at `0020` |
+| Phase A | **complete** — A1, A2, A3, A5 all shipped and verified against `angebot_dev`. A4 deliberately skipped (D30) |
+| Outbound persistence | **fixed** — `0019`, both halves of a conversation now in `messages` |
 | RLS | 35 `create policy` statements; request-scoped identity at `src/db/client.ts:74` |
 | Model calls | `src/agent/client.ts` exists (F0.11 shipped); **nothing walks through it end to end** |
 
