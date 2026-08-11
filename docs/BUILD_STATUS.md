@@ -1,13 +1,27 @@
 # Build status
 
 Honest account of what exists against [FEATURE_INVENTORY.md](FEATURE_INVENTORY.md).
-Updated 2026-08-09.
+Updated 2026-08-11.
+
+## What the 33% headline does and does not mean
+
+`npm run progress` reports **33% (45 done, 11 partial, 98 to go, of 154)**, and that number
+is generated rather than asserted, which is why it is trusted here. It is also **stale in
+one specific way that matters**: it scores against the original 154-feature inventory, and
+Phases B–F below are not in that inventory. They were specified after it was written.
+
+So 33% is an accurate answer to "how much of the original spec exists" and an inaccurate
+answer to "how much of the product exists". Neither number is fudged to fix that. The
+inventory should absorb B–F and the metric re-run; until it does, read the two sections
+separately and do not add them together.
 
 ## Verified working
 
-`npm run verify` — typecheck, lint and **588 tests**, all green. `npm run test:db` applies
-all seventeen migrations to a scratch PostgreSQL and runs **two assertion suites** against it.
-`npm run build` produces a clean production build. `npm run dev` then `/q/demo` renders a
+`npm run verify` — typecheck, lint and **1,032 tests across 75 files**, all green.
+`npm run test:db` applies **all twenty-five migrations** to a scratch PostgreSQL and runs
+**six assertion suites** against it (tenancy, signup, prospects, enrichment, candidates,
+quote links). `npm run build` produces a clean production build. `npm run dev` then
+`/q/demo` renders a
 real quote priced by the real engine, `/a/{slug}` runs the hosted chat for **any real
 tenant** against the real endpoint, and `/signup` and `/login` render the owner-side auth
 surfaces.
@@ -262,3 +276,44 @@ Recorded because they are not in the spec and may want overriding:
   string that ends up printed on a business card.
 - **The idempotency key is not agency-scoped.** One physical message must never be
   admitted twice even if a routing bug attributed it to two tenants.
+
+---
+
+## Phases B–F (2026-08-11) — not in FEATURE_INVENTORY.md
+
+Specified in `docs/EXECUTION_HANDOFF.md` after the 154-feature inventory was written, so
+none of the below is counted by `npm run progress`. Shipped as six pull requests.
+
+| Item | State | Notes |
+|---|---|---|
+| **B0** object storage | **Done** | S3 over `fetch` + hand-rolled SigV4, path-style addressing because virtual-host is an AWS default most S3-compatible providers do not implement. `list()` follows the continuation token, because S3 truncates at 1000 keys with a flag rather than an error and `list` is what the deletion path enumerates. Refuses the filesystem driver in production rather than silently writing to a container that will be replaced. 7 tests |
+| **B1** resumable uploads | **Done** | 1 MiB chunks in `bytea`, not S3 multipart: the client is a phone on a venue's wifi, and a dropped connection must cost one chunk rather than one file. Digest verified before the object is written; `chunk_total` derived server-side so "declare 1 byte, send 10 GB" is not expressible. 27 tests + 4 DB assertions |
+| **B2** parsing | **Done** | xlsx/docx/csv/pdf read without a dependency. ZIP guarded in three stages (declared size, `maxOutputLength`, actual length), XXE absent by construction — DOCTYPE is stepped over as an opaque span, so there is nothing for an entity to bind to |
+| **B3** prospects schema | **Done** | Ops-scoped, gated by `is_platform_operator()`, which takes no parameter and so cannot be told which user to be. A prospect is **not** a tenant (D34) — no `agency_id` — with `erase_prospect()` as the GDPR path. 10 DB assertions |
+| **C1** enrichment queue | **Done** | Lease, budget and cache. Prospect budget, run budget and page cap tested independently, so a caller passing `micro_cents = 0` still hits `max_pages`. 12 DB assertions |
+| **C2** page → candidates | **Done** | The model finds the item; **code reads the price**. The output schema has no numeric price field, so a computed price has nowhere to be returned; every excerpt is checked verbatim against the page actually fetched. 37 tests, verified by mutation rather than by passing |
+| **C3** confirmation UI | **Done** | Split into confident and needs-you **in the query**, not the component. One tap confirms 24 items and writes 24 verdicts — the verdict is the product (§4), and a set-based implementation would have lost 23 of them per tap. 8 DB assertions |
+| **C4** drift cards | **Done** | Weekly re-crawl diffs against what was confirmed. Exact name matching only, a 1% floor, three cards hard. 14 tests |
+| **C5** the "% smarter" number | **Done** | Extraction F1 against a **frozen, fingerprinted, held-out** golden set. Micro-averaged; refuses to publish below 50 examples or across a set that changed. The first test asserts the number **can go down** — that is the property that makes it a measurement rather than a chart. 13 tests |
+| **D1** responsive shell | **Done** | 44px targets, zero CLS measured on inbox/catalogue/guardrails under mobile slow-3G |
+| **D2** upload capability | **Done** | The client/customer asymmetry lives in `src/uploads/limits.ts`, not in an `accept` attribute: voice notes from the owner, never from a stranger (D5) |
+| **D3** install path | **Done** | PWA. The researched alternative — per-device build-from-source guides, ~35 min with Xcode for iOS — is unusable for a paywalled SaaS. Recorded in `docs/research/INSTALL_METHOD.md` |
+| **E** ops | **Done** | 3-stage Dockerfile, non-root uid 1001, standalone output, `/api/health` that reports ok/degraded/unconfigured and no driver text or hostname |
+| **Execution button** | **Done** | `[ ▶ Angebot erstellen & senden ]`. Closed a larger hole than expected: nothing in the product had ever written a `quote_versions` row, so `/q/[token]` could only render the demo tenant |
+| **Security pass** | **Done** | `docs/SECURITY_PASS.md`. Three live HIGH findings fixed (H1 floor-price leak, H2 revocation impossible, H3 revoked links resolving) plus H4/H5 on `allocate_quote_number` |
+
+### Still open out of the security pass
+
+Everything tagged **[latent]** in `docs/SECURITY_PASS.md` — real defects that nothing calls
+yet, or that need a second vulnerability to reach. The ones worth doing next, in order:
+
+1. **H7** — the crawler has no SSRF guard. It is not wired to a live caller today, and it
+   must not be until the host is resolved, non-public addresses are rejected, and the
+   resolved address is pinned for the connection. Redirects are currently followed with the
+   host check applied once, before the first hop.
+2. **M1** — `request.arrayBuffer()` on the chunk route buffers before the size check. App
+   Router has no default body cap and `output: 'standalone'` means no upstream one either.
+3. **M2** — failed uploads leak their chunks; `failJob` should delete them.
+4. **M3** — owner-only catalogue writes are enforced in the route but not in SQL.
+5. **M5/M6/M7** — the `upload_chunks` tenancy gap, enrichment lease ownership, and the
+   cascade that defeats the deliberate no-delete policy on `candidate_verdicts`.
