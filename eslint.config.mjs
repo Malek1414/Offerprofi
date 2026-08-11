@@ -1,4 +1,5 @@
 import js from '@eslint/js'
+import typescriptEslint from '@typescript-eslint/eslint-plugin'
 
 export default [
   { ignores: ['.next/**', 'node_modules/**', 'next-env.d.ts'] },
@@ -20,8 +21,19 @@ export default [
       parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
       globals: { console: 'readonly', process: 'readonly', URL: 'readonly', Intl: 'readonly' },
     },
+    plugins: { '@typescript-eslint': typescriptEslint },
     rules: {
-      'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      // The base rule is not TypeScript-aware. It reads the parameter names in an
+      // interface method signature as unused function arguments, so `ObjectStore` in
+      // src/storage/types.ts — a pure contract, five signatures and no bodies — could
+      // not be declared without either renaming every parameter to `_key` or deleting
+      // the names that document it. Same class of false positive as `no-undef` below;
+      // the typed rule understands declarations and flags only real dead bindings.
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
       'no-undef': 'off', // TypeScript handles this, and it false-positives on types
     },
   },
