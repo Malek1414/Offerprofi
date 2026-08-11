@@ -42,6 +42,7 @@ import {
   isKnownModel,
   supportsZeroRetention,
 } from './cost'
+import { admitModelCall, budgetLimits, takeSlot } from './budget'
 import { type UntrustedDocument, buildPrompt } from './prompt'
 import { contentRef, failureRef, recordAgentRun } from './runs'
 
@@ -105,6 +106,14 @@ export type ModelFailureKind =
   | 'invalid_request'
   | 'transport'
   | 'empty_response'
+  /**
+   * A3 — an hourly meter is full.
+   *
+   * Sits alongside the others precisely so it inherits their handling: like every
+   * kind in this union it carries `escalate: true`, so a full meter reaches a
+   * customer as a person taking over, never as a refusal (I1).
+   */
+  | 'budget_exhausted'
 
 export interface ModelSuccess {
   ok: true
@@ -204,6 +213,26 @@ export async function callModel(request: ModelRequest): Promise<ModelOutcome> {
   const anthropic = getClient()
   if (!anthropic) {
     return failed('not_configured', 'ANTHROPIC_API_KEY is not set', startedAt, null)
+  }
+
+  // A3 — admission, at the single door.
+  //
+  // Deliberately here and not at the four or five places that want a model. This
+  // function is the only file permitted to import the SDK (enforced by
+  // `eslint.config.mjs` and `tests/agent/boundary.test.ts`), so a check placed
+  // here is one a new caller cannot forget and an existing one cannot route
+  // around. That property is the entire argument for the boundary existing.
+  const admission = await admitModelCall(takeSlot, budgetLimits(), {
+    agencyId: request.agencyId,
+    inquiryId: request.inquiryId ?? null,
+  })
+  if (!admission.admitted) {
+    return failed(
+      'budget_exhausted',
+      `hourly meter ${admission.scope} is full`,
+      startedAt,
+      null,
+    )
   }
 
   const { system, user, foreignMarkers } = buildPrompt(
