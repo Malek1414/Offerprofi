@@ -147,16 +147,25 @@ export function GuardrailFormClient({ initial, duringOnboarding }: Props) {
     </Setting>
   )
 
+  /*
+   * The label wraps the input rather than pointing at it with `htmlFor`, which is
+   * what turns 22px of checkbox into a 44px target (D1) using nothing but HTML the
+   * browser already knows how to route. The label carries no text of its own — the
+   * question is `settingLabel`, beside it — so the input's `aria-label` remains the
+   * accessible name and nothing is announced twice.
+   */
   const toggle = (key: 'autoSendEnabled' | 'allowScopeReduction' | 'allowEmoji') => (
     <Setting copyKey={key} copy={copy}>
-      <input
-        type="checkbox"
-        className={styles.checkbox}
+      <label className={styles.checkboxTap}>
+        <input
+          type="checkbox"
+          className={styles.checkbox}
           checked={values[key]}
           onChange={(e) => set(key, e.target.checked)}
           disabled={key === 'autoSendEnabled'}
-        aria-label={copy[key].label}
-      />
+          aria-label={copy[key].label}
+        />
+      </label>
     </Setting>
   )
 

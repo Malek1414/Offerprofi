@@ -82,6 +82,19 @@ export default async function InboxPage() {
             )}
           </div>
         ) : (
+          /*
+           * D1 asks for virtualisation on any list that can exceed ~100 rows. This one
+           * cannot, and adding a windowing library to it would be complexity bought
+           * with nothing. `listInbox` takes a hard `limit = 100`, so 100 is the
+           * ceiling, not a typical case — and the typical case is far below it: a
+           * caterer sees 20–60 enquiries a month, so even an owner who never archives
+           * anything reaches the cap after a busy quarter. A hundred rows of three
+           * lines each is roughly 9,000px of DOM, which every phone this product
+           * targets scrolls at 60fps without help, and virtualising it would cost
+           * ⌘F-in-page, the browser's own scroll restoration, and print. Revisit when
+           * the limit does — the honest signal is `listInbox` growing pagination,
+           * not this file.
+           */
           <ul className={styles.list}>
             {rows.map((row) => {
               const label = stateLabel(row.state)

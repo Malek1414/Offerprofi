@@ -75,13 +75,48 @@ export function ChatClient(props: Props) {
    */
   const sendRequestRef = useRef<() => void>(() => {})
 
+  /**
+   * D1 — following the stream without dropping frames.
+   *
+   * Every token that arrives is a state update, and every state update used to run
+   * `scrollHeight - scrollTop - clientHeight` inside the commit. Reading those three
+   * properties immediately after React has mutated the DOM forces the browser to stop
+   * and lay the transcript out synchronously before it can answer — a forced reflow,
+   * once per token, on the main thread, on the screen the whole pitch rests on. On a
+   * mid-range Android with a long conversation that is exactly the shape of jank the
+   * 60fps requirement is about.
+   *
+   * The measurement moves to a passive scroll listener, where the browser is laying
+   * out anyway and a stale answer costs nothing. What is left in the token path is a
+   * boolean and one write. The write is `Number.MAX_SAFE_INTEGER` rather than
+   * `el.scrollHeight` on purpose: reading scrollHeight to scroll to it would put the
+   * forced reflow straight back. `scrollTop` is clamped to the maximum scroll offset
+   * by the CSSOM spec, so any absurdly large value means "the bottom" and costs
+   * nothing to compute.
+   *
+   * `true` to begin with: a fresh transcript is at the bottom because it is empty, and
+   * the first agent turn should scroll into view rather than wait for a scroll event
+   * that has not happened yet.
+   */
+  const pinnedToBottom = useRef(true)
+
+  useEffect(() => {
+    const el = transcriptRef.current
+    if (!el) return
+    const onScroll = () => {
+      // 120px of slack, so a customer who nudges the list by a thumb-width is still
+      // "following" and does not silently stop receiving the conversation.
+      pinnedToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [])
+
   // Follow the conversation as it grows, but never fight a customer who has
   // scrolled up to re-read what she wrote.
   useEffect(() => {
     const el = transcriptRef.current
-    if (!el) return
-    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120
-    if (nearBottom) el.scrollTop = el.scrollHeight
+    if (el && pinnedToBottom.current) el.scrollTop = Number.MAX_SAFE_INTEGER
   }, [bubbles])
 
   const send = useCallback(

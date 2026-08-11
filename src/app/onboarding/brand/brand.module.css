@@ -9,9 +9,16 @@
   margin: 0 auto;
 }
 
+/* The only way back out on a phone. Links are outside the 44px floor in globals.css
+   — that rule spares inline links inside sentences — so a standalone navigation link
+   declares it here. The negative left margin keeps the label optically aligned with
+   the heading while the hit area runs past it. */
 .back {
-  display: inline-block;
-  margin-bottom: 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 0.5rem;
+  margin: 0 0 0.75rem -0.5rem;
   color: var(--ink-mute);
   font-size: var(--step--1);
 }

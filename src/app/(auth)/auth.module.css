@@ -207,14 +207,23 @@
   padding: 0;
 }
 
+/*
+ * The suggestion chips wrap rather than scroll, and each one clears the 44px floor
+ * from globals.css. They computed to about 28px before that rule: three free slugs
+ * side by side in a 28px row, on the one screen where a mis-tap costs the owner a
+ * permanent, customer-visible address. `align-items: center` keeps the mono text
+ * optically centred once the button is taller than its own line box.
+ */
 .suggestion {
+  display: inline-flex;
+  align-items: center;
   font-family: var(--mono);
   font-size: var(--step--1);
   color: var(--ink);
   background: var(--paper-raised);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
-  padding: 0.35rem 0.55rem;
+  padding: 0.35rem 0.7rem;
   cursor: pointer;
 }
 
