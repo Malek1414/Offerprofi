@@ -192,8 +192,16 @@ do $$
 declare
   a1 text; a2 text; b1 text;
 begin
+  -- Identity is set per tenant since 0026: `allocate_quote_number` is SECURITY
+  -- DEFINER and takes the agency as a parameter, so it checks membership in its own
+  -- body — RLS is bypassed there by construction. Before that check existed, this
+  -- block ran with whatever identity the previous one happened to leave behind, and
+  -- any caller could burn numbers out of any tenant's gapless §14 UStG counter.
+  perform set_config('app.current_user_id', '11111111-1111-1111-1111-111111111111', false);
   a1 := public.allocate_quote_number('aaaaaaaa-0000-0000-0000-000000000001');
   a2 := public.allocate_quote_number('aaaaaaaa-0000-0000-0000-000000000001');
+
+  perform set_config('app.current_user_id', '22222222-2222-2222-2222-222222222222', false);
   b1 := public.allocate_quote_number('bbbbbbbb-0000-0000-0000-000000000002');
 
   if a1 = a2 then
