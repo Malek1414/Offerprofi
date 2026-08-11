@@ -1,0 +1,134 @@
+/*
+ * The install affordance.
+ *
+ * A card pinned to the bottom of the viewport rather than a row inside the page,
+ * because it is mounted from the root layout and has no business rearranging a screen
+ * it does not own — the inbox is the same list whether this is showing or not. Bottom
+ * rather than top for the reason D1 gives: this is read on a phone held in one hand,
+ * and the thumb is at the bottom.
+ *
+ * Achromatic, like the rest of our chrome. Deliberately *not* --brand: this is our
+ * app asking to be installed, not the agency's document, and a card in the agency's
+ * colour would read as something the agency is asking for.
+ */
+
+.card {
+  position: fixed;
+  z-index: 50;
+  left: 50%;
+  transform: translateX(-50%);
+  /* Clear of the iOS home indicator and of Android's gesture bar. */
+  bottom: max(0.75rem, env(safe-area-inset-bottom));
+  width: min(25rem, calc(100vw - 1.5rem));
+  padding: 0.95rem 1rem 0.85rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  /* The only shadow in the product. It is here because this element floats over
+     content that scrolls underneath it and has to be told apart from it. */
+  box-shadow: 0 0.5rem 1.75rem rgb(0 0 0 / 12%);
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.35rem;
+  font-family: var(--display);
+  font-size: var(--step-1);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.body {
+  margin: 0;
+  font-size: var(--step--1);
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+/*
+ * The share sheet, drawn.
+ *
+ * INSTALL_METHOD.md §4 asks for the glyph rather than a description, and the reason is
+ * concrete: "Teilen" is a word, but the thing the owner has to find is a small square
+ * with an arrow out of the top of it, and she finds it faster by matching a shape than
+ * by reading a noun. Sized to the text and aligned to the baseline so it sits in the
+ * sentence rather than next to it.
+ */
+.glyph {
+  width: 1.15em;
+  height: 1.15em;
+  vertical-align: -0.2em;
+  margin: 0 0.1em;
+  color: var(--ink);
+}
+
+.steps {
+  margin: 0.6rem 0 0;
+  padding: 0 0 0 1.1rem;
+  font-size: var(--step--1);
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+
+.steps li + li {
+  margin-top: 0.2rem;
+}
+
+/*
+ * The trap, stated. Publik's install guides name the combination that cannot work
+ * instead of letting the reader find out after half an hour; this is ours, and it is
+ * the one an Instagram bio link walks straight into.
+ */
+.hint {
+  margin: 0.7rem 0 0;
+  padding: 0.5rem 0.6rem;
+  font-size: var(--step--1);
+  line-height: 1.45;
+  color: var(--warn-ink);
+  background: var(--warn-wash);
+  border: 1px solid var(--warn-ink);
+  border-radius: var(--radius);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+}
+
+/* ≥44px on every tappable thing (D1), including the one that only says "no". */
+.install,
+.dismiss {
+  min-height: 44px;
+  padding: 0.55rem 0.9rem;
+  font: inherit;
+  font-size: var(--step--1);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.install {
+  font-weight: 600;
+  color: var(--paper-raised);
+  background: var(--ink);
+  border: 1px solid var(--ink);
+}
+
+.install:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.dismiss {
+  margin-left: auto;
+  color: var(--ink-mute);
+  background: none;
+  border: 1px solid transparent;
+}
+
+.dismiss:hover {
+  color: var(--ink);
+}

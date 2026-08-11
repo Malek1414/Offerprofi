@@ -63,12 +63,29 @@ const SHELL_CACHE = 'app-shell-v1'
 const OFFLINE_URL = '/offline.html'
 
 /**
- * The precache. Static files only, and each one is here because the app is visibly
- * broken without it when the network is gone.
+ * The precache is one file, and that is not an oversight.
+ *
+ * Precaching earns its cost only for things that must be present when the network is
+ * already gone, and exactly one file qualifies: the fallback document. The icons below
+ * are copied by the operating system at install time and are never fetched from here
+ * again; `/_next/static` is populated on first use, when the owner is online by
+ * definition. Anything more would be paying install-time bandwidth for files nobody
+ * asks for offline.
  */
-const PRECACHE = [
-  OFFLINE_URL,
-  '/icon.svg',
+const PRECACHE = [OFFLINE_URL]
+
+/**
+ * Files in `public/` that may be kept once they have been fetched.
+ *
+ * Written out one by one rather than matched by extension, because "cache anything
+ * ending in .png" is how an uploaded logo, a customer's screenshot or a rendered
+ * quote thumbnail ends up in here later without anyone deciding that it should.
+ *
+ * `/icon.svg` is deliberately absent: it is a Next route (src/app/icon.svg), not a
+ * static file, and it has no content hash in its URL, so a cached copy would outlive
+ * a change to the mark.
+ */
+const STATIC_FILES = [
   '/icon-192.png',
   '/icon-512.png',
   '/icon-maskable.svg',
@@ -120,7 +137,8 @@ function isNeverCache(pathname) {
 function isImmutableAsset(url) {
   if (url.search !== '') return false
   if (url.pathname.startsWith(IMMUTABLE_PREFIX)) return true
-  return PRECACHE.includes(url.pathname)
+  if (url.pathname === OFFLINE_URL) return true
+  return STATIC_FILES.includes(url.pathname)
 }
 
 self.addEventListener('install', (event) => {
