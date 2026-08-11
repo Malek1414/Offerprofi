@@ -160,26 +160,37 @@ reproduction commands in MERGE_EVALUATION.md §6.
 gh repo clone wotschofsky/offerprofi /tmp/felix-offerprofi
 ```
 
-### A1 — `confirm → handoff` · **do this first**
+### A1 — `confirm → handoff` · **shipped 11 Aug 2026**
 
-Nothing in the tree transitions an inquiry to `sent_to_owner`:
+**The original diagnosis in this document was wrong, and is corrected here.**
 
-```bash
-grep -rn "sent_to_owner" src/
-```
+The claim was that nothing transitions an inquiry to `sent_to_owner`, sourced from
+`grep -rn "sent_to_owner" src/`. That grep searches TypeScript only, and the transition
+lives in a Postgres function — `db/migrations/0011_request_links.sql:186` — so the string
+cannot appear in `src/`. The path button → `/api/chat/{slug}/send` → `sendRequestToOwner` →
+SQL was already complete, and had already fired twice in `angebot_dev`, on 9 and 10 Aug.
 
-returns only the state-machine definition (`src/domain/inquiry-state.ts:33,97-99`) and the
-inbox label (`src/inbox/labels.ts:38`).
+The real defect was UX. `readyToSendLine()` asked *"Passt das so?"* — a question — while the
+mechanism was a button below the composer. On inquiry `6ce639a5` the brief reached
+`completeness = 1, overall_confidence = 0.98`, so `readyToSend` was true, `summary_prompt`
+was emitted, `route.ts` sent `ready`, and the button rendered. The tester answered the
+question in text and the enquiry sat in `qualifying`. **The brief was never polluted** —
+that part of the walkthrough note was also wrong; `brief_json` is clean.
 
-Reproduced by walkthrough on 10 Aug: the agent ends the qualifying loop with *"Passt das
-so?"* and nothing consumes the answer. Both *"Ja, das passt genau so"* and a bare *"Ja"*
-were absorbed into `Besonderes` as further extraction, and the summary was re-asked.
+**Shipped fix.** `src/chat/affirmative.ts` matches a closed DE/EN word list — no model reads
+it — and `src/chat/qualifying-turn.ts` consults it *before* extraction, so an affirmation
+never becomes event data and a yes costs no model call. A match emits a `send_now` turn;
+`route.ts` forwards a `send_now` SSE frame; the browser presses the control it already had.
+**The send itself still happens only at the session-scoped endpoint**, so there remains
+exactly one way out of a conversation. `readyToSendLine()` now names both routes. A
+qualified yes (*"Ja, aber die Uhrzeit stimmt nicht"*) deliberately does not send.
 
-**Fix:** the ready-to-send branch at `src/chat/qualifying-turn.ts:166-174`. An affirmative
-reply mints the `request_links` rows and transitions state.
+Verified against `angebot_dev`, not only in tests: `event: send_now` fired, `POST /send`
+returned `201`, `state = sent_to_owner`, both `request_links` rows minted, the customer
+document rendered `200`, and the brief held no trace of the affirmation.
 
-**Until this lands, "vom Chat zum verschickten Angebot in unter 5 Minuten" is not
-demonstrable end to end, and everything below is downstream of it.**
+**Lesson worth keeping:** a grep over `src/` is not evidence about a system whose state
+machine is enforced in SQL. Check the database before believing a finding about it.
 
 ### A2 — Prompt-injection defence
 

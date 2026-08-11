@@ -37,6 +37,12 @@ export type AgentTurnKind =
   | 'summary'
   /** Phase B — the deterministic line under the summary. Never mentions money. */
   | 'summary_prompt'
+  /**
+   * A1 — she answered the summary with a yes, so the surface presses send for her.
+   * Carries no authority of its own: the browser still calls the session-scoped
+   * send endpoint, which is the one place an enquiry may leave from.
+   */
+  | 'send_now'
   /** Phase B / I5 — the agent could not continue, so a person is coming. Not a refusal. */
   | 'handoff'
 
@@ -187,15 +193,38 @@ export function readyToSendLine(
 ): string {
   if (language === 'de') {
     return formality === 'du'
-      ? `Passt das so? Sag mir gern, wenn etwas fehlt oder anders ist. ` +
+      ? `Passt das so? Dann schick es unten ab — oder schreib mir einfach "Ja". ` +
+          `Sag gern Bescheid, wenn etwas fehlt oder anders ist. ` +
           `Das Angebot mit den Preisen macht ${ownerName} selbst — das kommt als Nächstes.`
-      : `Passt das so? Sagen Sie mir gern, wenn etwas fehlt oder anders ist. ` +
+      : `Passt das so? Dann schicken Sie es unten ab — oder schreiben Sie mir einfach "Ja". ` +
+          `Sagen Sie gern Bescheid, wenn etwas fehlt oder anders ist. ` +
           `Das Angebot mit den Preisen macht ${ownerName} selbst — das kommt als Nächstes.`
   }
   return (
-    `Does that look right? Tell me if anything is missing or different. ` +
+    `Does that look right? Send it below — or just reply "yes". ` +
+    `Tell me if anything is missing or different. ` +
     `${ownerName} puts the offer and the prices together himself — that comes next.`
   )
+}
+
+/**
+ * What she is told at the moment her yes is taken as a send.
+ *
+ * Deliberately past tense and free of any conditional: by the time this is on
+ * screen the browser is already calling the send endpoint, and a line that hedged
+ * would read as a question she has now answered twice.
+ */
+export function sendingNowLine(
+  language: Language,
+  formality: Exclude<Formality, 'unknown'>,
+  ownerName: string,
+): string {
+  if (language === 'de') {
+    return formality === 'du'
+      ? `Alles klar — ich gebe deine Anfrage an ${ownerName} weiter.`
+      : `Alles klar — ich gebe Ihre Anfrage an ${ownerName} weiter.`
+  }
+  return `Got it — I am passing your enquiry to ${ownerName}.`
 }
 
 /**

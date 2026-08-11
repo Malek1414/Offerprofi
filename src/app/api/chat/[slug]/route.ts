@@ -347,6 +347,11 @@ function streamTurns<T>(
           // because it is not something the assistant *said* — and because the
           // decision belongs to code, not to the sentence the model wrote.
           if (answer.some((t) => t.kind === 'summary_prompt')) send('ready', {})
+          // A1 — she answered the summary with a yes. The frame asks the browser to
+          // press the control it already has; the send itself still happens at the
+          // session-scoped endpoint, so there remains exactly one way out of a
+          // conversation and this is not it.
+          if (answer.some((t) => t.kind === 'send_now')) send('send_now', {})
         }
         send('done', {})
       } catch (error) {

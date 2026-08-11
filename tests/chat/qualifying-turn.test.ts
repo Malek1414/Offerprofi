@@ -21,10 +21,15 @@ const recordAgentProgress = vi.fn()
 vi.mock('../../src/agent/extraction', () => ({
   extractRequest: (...args: unknown[]) => extractRequest(...args),
 }))
-vi.mock('../../src/agent/qualify', () => ({
+vi.mock('../../src/agent/qualify', async () => ({
   qualify: (...args: unknown[]) => qualify(...args),
   // The store imports this constant for its message limit.
   TRANSCRIPT_WINDOW: 10,
+  // Real, not stubbed: it is a pure function over the request, and whether the
+  // affirmative branch fires at all depends on it agreeing with the production one.
+  missingRequired: (await vi.importActual<typeof import('../../src/agent/qualify')>(
+    '../../src/agent/qualify',
+  )).missingRequired,
 }))
 vi.mock('../../src/agent/facts', () => ({
   loadAgencyFacts: () => Promise.resolve(['Mindestbestellung ab 20 Personen.']),
@@ -266,5 +271,49 @@ describe('without a database', () => {
     loadConversationContext.mockRejectedValue(new Error('connection refused'))
     const turns = await runQualifyingTurn(input())
     expect(turns.map((t) => t.kind)).toEqual(['question'])
+  })
+})
+
+/**
+ * A1 — she saw the summary and said yes.
+ *
+ * Inquiry 6ce639a5 on 10 Aug 2026 sat in `qualifying` because "Ja, das passt genau
+ * so" was read as more conversation. Her word is the same act as pressing the
+ * button, and it has to reach the send path without a model in between.
+ */
+describe('affirmative after a complete request', () => {
+  it('asks the surface to send, and does not extract from the affirmative', async () => {
+    loadConversationContext.mockResolvedValue({
+      request: request(),
+      contact,
+      messages: [{ id: 'm1', text: 'Hallo!' }],
+      state: 'qualifying',
+      automationPaused: false,
+    })
+
+    const turns = await runQualifyingTurn(
+      input({ message: { id: 'm9', text: 'Ja, das passt genau so.' } }),
+    )
+
+    expect(turns.map((t) => t.kind)).toEqual(['send_now'])
+    // The affirmation is not event data. Extracting it is what polluted the brief.
+    expect(extractRequest).not.toHaveBeenCalled()
+  })
+
+  it('keeps qualifying when the yes carries a correction', async () => {
+    loadConversationContext.mockResolvedValue({
+      request: request(),
+      contact,
+      messages: [{ id: 'm1', text: 'Hallo!' }],
+      state: 'qualifying',
+      automationPaused: false,
+    })
+
+    const turns = await runQualifyingTurn(
+      input({ message: { id: 'm9', text: 'Ja, aber wir sind 90 Personen' } }),
+    )
+
+    expect(turns.map((t) => t.kind)).not.toContain('send_now')
+    expect(extractRequest).toHaveBeenCalled()
   })
 })

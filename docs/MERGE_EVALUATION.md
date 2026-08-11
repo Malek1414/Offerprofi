@@ -241,20 +241,27 @@ Port inward from theirs.
 
 Sized against the 14 Aug pitch, highest value first.
 
-1. **Confirm → handoff.** The blocking gap. No code path in the working tree *or* at `HEAD`
-   transitions an inquiry to `sent_to_owner`:
-   ```bash
-   grep -rn "sent_to_owner" src/
-   ```
-   returns only the state-machine definition (`src/domain/inquiry-state.ts:33,97-99`) and the
-   inbox label (`src/inbox/labels.ts:38`). Confirmed by walkthrough on 10 Aug: the agent ends
-   the qualifying loop with "Passt das so?" and nothing consumes the answer — "Ja, das passt
-   genau so" and a bare "Ja" were both absorbed into `Besonderes` as further extraction, and
-   the summary was re-asked.
-   Fix the ready-to-send branch at `src/chat/qualifying-turn.ts:166-174` so an affirmative
-   reply mints the `request_links` rows and transitions state.
-   **Without this the headline promise — chat to sent Angebot in under five minutes — is not
-   demonstrable end to end.**
+1. ~~**Confirm → handoff.** The blocking gap.~~ **RETRACTED 11 Aug 2026 — this finding was
+   wrong, and shipped as a UX fix instead.**
+
+   The finding rested on `grep -rn "sent_to_owner" src/` returning only the state-machine
+   definition and the inbox label. **That grep searches TypeScript, and the transition is in
+   SQL** — `db/migrations/0011_request_links.sql:186`, inside `send_request_to_owner()`. The
+   string could never have appeared in `src/`. The path button → `/api/chat/{slug}/send` →
+   `sendRequestToOwner` → SQL was already complete, and `angebot_dev` already held an inquiry
+   in `sent_to_owner` with both `request_links` rows, from 10 Aug 12:19.
+
+   The walkthrough's second claim was also wrong: `brief_json` on inquiry `6ce639a5` is clean
+   at `completeness = 1, overall_confidence = 0.98`. Nothing was absorbed into `Besonderes`.
+   What actually happened is that the summary asked "Passt das so?" while the mechanism was a
+   button, so the tester answered in text and never pressed it.
+
+   Shipped instead: deterministic affirmative detection (`src/chat/affirmative.ts`, no model
+   in the path) checked before extraction, emitting a `send_now` frame that makes the browser
+   press its existing control. See EXECUTION_HANDOFF.md §5 A1.
+
+   **Method note for anyone verifying findings in this document: a grep over `src/` is not
+   evidence about a system whose state machine is enforced in Postgres.**
 2. **Port the injection defence** (F4) into `src/agent/prompt.ts`, behind the existing
    `buildPrompt` signature so no call site changes. Bring their tests across.
 3. **Port spend metering** (F5) — migration plus an admission check *inside* `callModel`, so

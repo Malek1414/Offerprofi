@@ -68,6 +68,12 @@ export function ChatClient(props: Props) {
   /** F1.11 — how long the customer took. A bot answers faster than a person can read. */
   const renderedAt = useRef<number>(Date.now())
   const lastSent = useRef<string>('')
+  /**
+   * A1 — `send` runs before `sendRequest` is declared, and the stream that decides
+   * to press it is consumed inside `send`. A ref is what lets the earlier callback
+   * reach the later one without reordering the whole component.
+   */
+  const sendRequestRef = useRef<() => void>(() => {})
 
   // Follow the conversation as it grows, but never fight a customer who has
   // scrolled up to re-read what she wrote.
@@ -113,7 +119,12 @@ export function ChatClient(props: Props) {
         })
 
         if (!response.ok || !response.body) throw new Error(`status ${response.status}`)
-        await consumeStream(response.body, setBubbles, () => setCanSend(true))
+        await consumeStream(
+          response.body,
+          setBubbles,
+          () => setCanSend(true),
+          () => sendRequestRef.current(),
+        )
       } catch (error) {
         // An abort is the customer interrupting on purpose (F1.14). It is not a
         // failure and must not surface as one.
@@ -175,6 +186,10 @@ export function ChatClient(props: Props) {
       setSending(false)
     }
   }, [props.slug])
+
+  useEffect(() => {
+    sendRequestRef.current = () => void sendRequest()
+  }, [sendRequest])
 
   const started = bubbles.length > 0
 
@@ -381,6 +396,7 @@ async function consumeStream(
   body: ReadableStream<Uint8Array>,
   setBubbles: React.Dispatch<React.SetStateAction<Bubble[]>>,
   onReady?: () => void,
+  onSendNow?: () => void,
 ): Promise<void> {
   const reader = body.getReader()
   const decoder = new TextDecoder()
@@ -437,6 +453,11 @@ async function consumeStream(
         // Not a turn: the assistant did not say this. The server computed that the
         // request is complete enough to hand over, and the control appears.
         onReady?.()
+      } else if (event === 'send_now') {
+        // A1 — she answered the summary with a yes rather than reaching for the
+        // button. Same button, pressed for her: this calls the identical endpoint
+        // with her session cookie, so nothing here is a second way to send.
+        onSendNow?.()
       }
     }
   }

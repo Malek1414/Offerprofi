@@ -31,13 +31,14 @@ import { recordAgentProgress, loadConversationContext } from '../agent/conversat
 import { storeCateringRequest } from '../agent/brief-store'
 import { extractRequest } from '../agent/extraction'
 import { loadAgencyFacts } from '../agent/facts'
-import { qualify } from '../agent/qualify'
+import { missingRequired, qualify } from '../agent/qualify'
+import { isSendAffirmative } from './affirmative'
 import { asSnippets, searchKnowledge } from '../knowledge/repository'
 import type { CateringRequest, RequiredRequestField } from '../domain/catering-request'
 import type { ContactPartition } from '../domain/extracted'
 import type { Formality, Language } from '../domain/event-brief'
 import type { AgentTurn } from './conversation'
-import { handoffNotice, missingFieldQuestion, readyToSendLine } from './conversation'
+import { handoffNotice, missingFieldQuestion, readyToSendLine, sendingNowLine } from './conversation'
 
 export interface QualifyingTurnInput {
   agencyId: string
@@ -80,6 +81,24 @@ export async function runQualifyingTurn(input: QualifyingTurnInput): Promise<Age
 
   // I5: a person is already on this thread. The agent does not talk over them.
   if (context?.automationPaused) return []
+
+  // A1 — she already saw the summary and said yes.
+  //
+  // Checked before extraction, and deliberately so: "Ja, das passt genau so" is not
+  // event data, and running it through the extractor is what put an affirmation
+  // into a request field on 10 Aug. It is also checked before any model call, so a
+  // yes costs nothing and cannot be misread — `isSendAffirmative` is a closed word
+  // list, and a phrasing it does not know simply leaves the send button as the way
+  // through (I1: no path here refuses her anything).
+  if (
+    context?.request &&
+    missingRequired(context.request).length === 0 &&
+    isSendAffirmative(input.message.text, input.language)
+  ) {
+    return [
+      { kind: 'send_now', text: sendingNowLine(voice.language, voice.formality, input.ownerName) },
+    ]
+  }
 
   // The persisted transcript already contains the turn in hand — the route chains
   // this off the write. Falling back to the message alone covers the demo tenant
