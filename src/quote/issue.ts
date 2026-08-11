@@ -236,36 +236,52 @@ async function recordChecks(
  */
 export async function reissueQuoteLink(
   userId: string,
-  agencyId: string,
   inquiryId: string,
 ): Promise<{ token: string; quoteNumber: string } | null> {
   const { token, hash } = mintQuoteToken()
 
   return withUser(userId, async (client) => {
-    const result = await client.query<{ quote_number: string }>(
-      `update quote_versions qv
-       set token_hash = $3
-       from quotes q
-       where qv.quote_id = q.id
-         and q.inquiry_id = $2
-         and q.agency_id = $1
-         and q.state <> 'draft'
-         and qv.id = q.current_version_id
-       returning q.quote_number`,
-      [agencyId, inquiryId, hash],
+    // One statement, in the database, because the two halves must not be separable.
+    // As an UPDATE followed by an INSERT there is a window in which the old link is
+    // already dead and the new one does not exist yet — and the failure mode is a
+    // customer refreshing into a 404 on a quote nobody can now send her.
+    //
+    // Until 0026 this was an UPDATE from the application, and it could not run at
+    // all: `quote_versions_immutable` raised on every update and 0002 had dropped
+    // the UPDATE policy, so zero rows came back and the route reported the quote
+    // missing. An owner who had emailed a quote to the wrong address was told it
+    // did not exist while the leaked link stayed valid.
+    const result = await client.query<{ replace_quote_link: string | null }>(
+      'select public.replace_quote_link($1::uuid, $2::text)',
+      [inquiryId, hash],
     )
 
-    const row = result.rows[0]
-    if (!row) return null
+    const quoteNumber = result.rows[0]?.replace_quote_link
+    if (!quoteNumber) return null
 
-    await client.query(
-      `insert into quote_events (agency_id, quote_version_id, type, payload)
-       select $1, q.current_version_id, 'link_replaced', '{}'::jsonb
-       from quotes q where q.inquiry_id = $2 and q.agency_id = $1`,
-      [agencyId, inquiryId],
+    return { token, quoteNumber }
+  })
+}
+
+/**
+ * Kill the link without minting another.
+ *
+ * The other half of the same recovery. "Replace" is what an owner wants when the
+ * quote was right and the address was wrong; "revoke" is what she wants when the
+ * quote itself should not have gone out. Offering only the first would mean the
+ * only way to stop a link working is to create a second one — which is a strange
+ * thing to have to do, and leaves her holding a URL she never wanted to exist.
+ *
+ * One-way, enforced by the trigger in 0026 rather than by this function: a revoked
+ * link that could be restored by a single UPDATE is not revoked.
+ */
+export async function revokeQuoteLink(userId: string, inquiryId: string): Promise<boolean> {
+  return withUser(userId, async (client) => {
+    const result = await client.query<{ revoke_quote_link: boolean }>(
+      'select public.revoke_quote_link($1::uuid)',
+      [inquiryId],
     )
-
-    return { token, quoteNumber: row.quote_number }
+    return result.rows[0]?.revoke_quote_link === true
   })
 }
 

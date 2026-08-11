@@ -110,17 +110,61 @@ export function rehydrateQuote(resolved: ResolvedQuote): PricedQuote {
     .flatMap((step) => step.unknown)
 
   return {
-    lines: resolved.lines,
+    lines: resolved.lines.map(redactLine),
     modifiers,
     netTotal: resolved.netTotalCents as PricedQuote['netTotal'],
     vatBreakdown: resolved.vatBreakdown as PricedQuote['vatBreakdown'],
     grossTotal: resolved.grossTotalCents as PricedQuote['grossTotal'],
-    trace: resolved.trace as PricedQuote['trace'],
+    trace: redactTrace(resolved.trace) as PricedQuote['trace'],
     unknownServiceIds,
     // What was true when the quote was issued, not what is true now. A document
     // that silently changed its availability claim between two readings of the
     // same link would be a different document.
     availability: resolved.trace?.input.availability ?? 'available',
+  }
+}
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHAT THE CUSTOMER MAY NOT SEE, REMOVED BEFORE IT CAN CROSS TO THE BROWSER.
+ *
+ * `/q/{token}` renders `<QuoteDocument>`, which is a client component, so Next
+ * serialises everything handed to it into the RSC payload embedded in the HTML.
+ * "The customer cannot see it because nothing displays it" is not true of a client
+ * prop — view-source is the whole attack, and it needs no tooling.
+ *
+ * Two things had to go:
+ *
+ *  · `floorPrice` — the D8 hard floor, the lowest number the agency will ever
+ *    accept on that line. It is the single figure the guardrail engine exists to
+ *    defend, and a customer holding it knows the bottom of the negotiating range
+ *    before the negotiation starts. 0022 promises a stranger sees "no cost or
+ *    margin figure"; this is what makes that true rather than aspirational.
+ *
+ *  · step 3's `rule` — the tier thresholds behind the unit price ("above 80
+ *    guests this drops to X"). Knowing the ladder is knowing where to push.
+ *
+ * Redacted rather than type-erased. `PricedQuote` is the renderer's input on both
+ * the owner's side and the customer's, and forking it into two shapes would mean
+ * every future field is customer-safe unless someone remembers otherwise. This way
+ * the default is the owner's full object and the customer's copy is the one that
+ * had to be built on purpose — and it is built in the one function that every
+ * tokenised read already goes through.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+function redactLine(line: QuoteLine): QuoteLine {
+  // Set equal to the price actually charged rather than to zero. Zero is a
+  // *claim* — that the agency would give the line away — and it is one the
+  // guardrail evaluator would act on if this object ever came back inward.
+  return { ...line, floorPrice: line.unitPrice }
+}
+
+function redactTrace(trace: CalculationTrace | null): CalculationTrace | null {
+  if (!trace) return null
+
+  return {
+    ...trace,
+    steps: trace.steps.map((step) => (step.step === 3 ? { ...step, rule: null } : step)),
   }
 }
 

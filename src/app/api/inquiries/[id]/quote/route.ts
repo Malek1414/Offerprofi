@@ -17,7 +17,7 @@ import { type NextRequest } from 'next/server'
 import { currentUserId } from '../../../../../auth/current-user'
 import { loadInquiry } from '../../../../../inbox/repository'
 import { currentAgency } from '../../../../../onboarding/repository'
-import { issueQuote, quotePath, reissueQuoteLink } from '../../../../../quote/issue'
+import { issueQuote, quotePath, reissueQuoteLink, revokeQuoteLink } from '../../../../../quote/issue'
 
 export const runtime = 'nodejs'
 
@@ -94,8 +94,13 @@ export async function PUT(
   const agency = await currentAgency(userId)
   if (!agency) return Response.json({ status: 'no_agency' }, { status: 409 })
 
+  // The agency id is not passed through any more: `replace_quote_link` reads the
+  // quote under RLS, so a member of another tenant sees no row and a cross-tenant
+  // inquiry id is indistinguishable from a missing one. Handing the tenant in as a
+  // parameter would have made the caller responsible for a check the database is
+  // already making — the shape that turned out to be H4 on `allocate_quote_number`.
   const { id } = await context.params
-  const replaced = await reissueQuoteLink(userId, agency.agencyId, id)
+  const replaced = await reissueQuoteLink(userId, id)
   if (!replaced) return Response.json({ status: 'not_found' }, { status: 404 })
 
   return Response.json({
@@ -103,4 +108,28 @@ export async function PUT(
     quoteNumber: replaced.quoteNumber,
     path: quotePath(replaced.token),
   })
+}
+
+/**
+ * Withdraw the link entirely.
+ *
+ * DELETE removes the *link*, never the quote — an issued quote is a document that
+ * happened, and 0026's trigger refuses to delete the row precisely so that
+ * "the customer accepted version 3" keeps meaning something after the link is dead.
+ */
+export async function DELETE(
+  _request: NextRequest,
+  context: { params: Promise<{ id: string }> },
+): Promise<Response> {
+  const userId = await currentUserId()
+  if (!userId) return Response.json({ status: 'unauthenticated' }, { status: 401 })
+
+  const agency = await currentAgency(userId)
+  if (!agency) return Response.json({ status: 'no_agency' }, { status: 409 })
+
+  const { id } = await context.params
+  const revoked = await revokeQuoteLink(userId, id)
+  if (!revoked) return Response.json({ status: 'not_found' }, { status: 404 })
+
+  return Response.json({ status: 'revoked' })
 }
