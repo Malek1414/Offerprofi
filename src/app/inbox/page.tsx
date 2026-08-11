@@ -16,7 +16,9 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 import styles from './inbox.module.css'
+import { DriftCards } from './drift-card'
 import { requireUserId } from '../../auth/current-user'
+import { openDrift } from '../../drift/repository'
 import { currentAgency } from '../../onboarding/repository'
 import { listInbox } from '../../inbox/repository'
 import { relativeTime, requestOneLiner, stateLabel } from '../../inbox/labels'
@@ -46,6 +48,11 @@ export default async function InboxPage() {
   const waiting = rows.filter((r) => stateLabel(r.state).urgency === 'waiting').length
   const brand = branding()
 
+  // C4. Here rather than on `/candidates`, because the candidate queue is the
+  // onboarding screen and she stops opening it the week she finishes. A nudge that
+  // only appears somewhere she no longer goes is a nudge nobody receives.
+  const drift = await openDrift(userId, agency.agencyId)
+
   return (
     <main className={styles.page}>
       <div className={styles.shell}>
@@ -60,6 +67,8 @@ export default async function InboxPage() {
               : `${rows.length} insgesamt`}
           </span>
         </header>
+
+        {drift.length > 0 && <DriftCards cards={drift} found={drift.length} />}
 
         {rows.length === 0 ? (
           <div className={styles.empty}>

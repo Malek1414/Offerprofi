@@ -1,0 +1,156 @@
+/*
+ * The drift card.
+ *
+ * Sits above the inbox list and must not outweigh it. This is a nudge on the way
+ * past, not the reason she opened the screen — an owner with eleven live enquiries
+ * and one changed price should see the enquiries first. So: no brand fill, no
+ * shadow, one hairline and a tinted ground.
+ *
+ * Every control is >=44px in its smallest dimension (D1), same as the confirmation
+ * queue. Both buttons are the same visual weight on purpose: "Passt so" is a real
+ * answer, not a refusal, and styling it as the quiet option would bias the verdict
+ * that §4 treats as training signal.
+ */
+
+.card {
+  margin: 0 0 1.25rem;
+  padding: 0.9rem 1rem 1rem;
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+}
+
+.heading {
+  margin: 0 0 0.75rem;
+  font-family: var(--display);
+  font-size: var(--step-0);
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--rule);
+}
+
+.row:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.detail {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+.item {
+  display: block;
+  font-size: var(--step-0);
+  color: var(--ink);
+}
+
+.change {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+}
+
+/* The old value is struck rather than removed: she is being asked to compare, and
+ * a comparison needs both halves visible. */
+.was {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.now {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.evidence {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+  /* One line. The excerpt is proof, not prose — if it needs two lines to be
+   * convincing, the card has become the website. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conflict {
+  margin: 0.45rem 0 0;
+  font-size: var(--step--1);
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+}
+
+.accept,
+.dismiss {
+  min-height: 44px;
+  padding: 0 0.9rem;
+  border-radius: 8px;
+  font-size: var(--step--1);
+  font-family: inherit;
+  cursor: pointer;
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--rule-strong, var(--rule));
+}
+
+.accept:hover:not(:disabled),
+.dismiss:hover:not(:disabled) {
+  border-color: var(--ink-mute);
+}
+
+.accept:disabled,
+.dismiss:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 30rem) {
+  .actions {
+    width: 100%;
+  }
+
+  /* Full-width targets once they are the only things on their row — a 44px button
+   * floating beside a wrapped line is the one most likely to be mis-tapped. */
+  .accept,
+  .dismiss {
+    flex: 1 1 0;
+  }
+}
