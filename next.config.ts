@@ -2,6 +2,12 @@ import type { NextConfig } from 'next'
 
 const config: NextConfig = {
   reactStrictMode: true,
+  // Phase E. Next traces the modules the app actually reaches and emits a
+  // self-contained server, so the production image carries those rather than the
+  // whole dependency tree that produced them. Without this the runtime stage of
+  // the Dockerfile has nothing small to copy and the image is ~400MB of
+  // node_modules, most of it a toolchain that must not be on a public host.
+  output: 'standalone',
   // Browser-based local QA uses both spellings. Next treats 127.0.0.1 as a
   // different development origin from localhost and otherwise blocks the client
   // chunks, leaving interactive forms unhydrated.
