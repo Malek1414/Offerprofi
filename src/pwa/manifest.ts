@@ -71,8 +71,14 @@ export function appManifest(): MetadataRoute.Manifest {
      * circle with a white ring around it, which is the single most recognisable sign
      * of a PWA that nobody checked on a real phone.
      *
-     * The SVG is listed first and `sizes: 'any'` so a browser that can rasterise it
-     * does — it is 2 KB against 4 KB for the 512 PNG and stays sharp on a tablet.
+     * The `any` entries point at the product mark that already exists — `/icon.svg` is
+     * Next's route for src/app/icon.svg, the favicon, and the PNGs are rendered from
+     * that same file. A home-screen icon that differs from the browser-tab icon is two
+     * marks for one product, and the tab is where the owner has already learned it.
+     *
+     * The SVG is listed first, at `sizes: 'any'`, so a browser that can rasterise it
+     * does: a few hundred bytes instead of several kilobytes, and sharp at any density
+     * a tablet cares to ask for.
      */
     icons: [
       { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
