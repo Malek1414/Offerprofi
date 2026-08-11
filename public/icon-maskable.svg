@@ -1,0 +1,26 @@
+<!--
+  The maskable variant of public/icon.svg.
+
+  Android does not draw the icon we ship; it draws whatever survives a mask it picks —
+  circle, squircle, rounded square, teardrop, depending on the launcher. A maskable
+  icon must therefore bleed to all four edges (no rounded corner of our own, or the
+  launcher rounds an already-rounded shape and the result reads as a mistake) and keep
+  everything meaningful inside the central 80% safe circle.
+
+  So: the same four rectangles as icon.svg, full-bleed ink ground, glyph scaled to 0.85
+  about (256, 256). At that scale the content box is 272 x 199, diagonal 337px, against
+  a safe circle of 410px. Unscaled it measures 396px, which technically fits and would
+  sit 14px from being clipped on the roundest launcher — not a margin worth having.
+
+  This file is also the source for apple-touch-icon.png, for the same reason: iOS
+  applies its own superellipse mask and wants a square to apply it to.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Angebot">
+  <rect width="512" height="512" fill="#14161c" />
+  <g fill="#fcfcfd" transform="translate(256 256) scale(0.85) translate(-256 -256)">
+    <rect x="96" y="139" width="320" height="36" rx="18" />
+    <rect x="96" y="199" width="248" height="36" rx="18" />
+    <rect x="96" y="273" width="320" height="12" rx="6" />
+    <rect x="96" y="321" width="176" height="52" rx="26" />
+  </g>
+</svg>

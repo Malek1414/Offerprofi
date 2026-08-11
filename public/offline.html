@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Keine Verbindung</title>
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fcfcfd" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#14161a" />
+    <meta name="robots" content="noindex, nofollow" />
+    <!--
+      The only HTML document the service worker is allowed to keep.
+
+      It is the whole reason the installed app can be opened with no signal and still
+      look like an application rather than a browser error. Everything else the owner
+      sees is fetched live, on purpose: see public/sw.js for the argument.
+
+      Two house rules are deliberately broken here, both because a file in public/ is
+      served by the CDN and never passes through the bundler:
+
+        1. Styles are in a <style> block rather than a CSS module. A CSS module would
+           need a build step this file does not have, and an external stylesheet would
+           be a second request — which is exactly the request that just failed.
+        2. The design tokens are copied out of src/app/globals.css instead of being
+           referenced. They will drift. That is an acceptable price for a page that
+           has to render with zero dependencies; if the palette changes, change the
+           six values below too.
+
+      There is no script on this page. "Erneut versuchen" is a link, not a reload
+      button, so the page keeps working with the strictest imaginable CSP and needs
+      nothing from the network to be useful.
+    -->
+    <style>
+      :root {
+        --paper: #fcfcfd;
+        --paper-sunk: #f4f5f7;
+        --ink: #14161c;
+        --ink-soft: #454b57;
+        --line: #e3e6ea;
+        --line-strong: #cdd2d9;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --paper: #14161a;
+          --paper-sunk: #0f1114;
+          --ink: #f2f3f5;
+          --ink-soft: #c3c8d1;
+          --line: #2a2e36;
+          --line-strong: #3a3f49;
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        padding: 2rem 1.25rem;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        font-size: 1rem;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      main {
+        max-width: 26rem;
+      }
+
+      h1 {
+        margin: 0 0 0.5rem;
+        font-family: ui-serif, 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+        font-size: 1.6rem;
+        font-weight: 600;
+        letter-spacing: -0.015em;
+        line-height: 1.15;
+      }
+
+      p {
+        margin: 0 0 0.9rem;
+        color: var(--ink-soft);
+      }
+
+      .retry {
+        display: inline-block;
+        margin-top: 0.4rem;
+        padding: 0.7rem 1rem;
+        min-height: 44px;
+        font-weight: 600;
+        color: var(--ink);
+        background: var(--paper-sunk);
+        border: 1px solid var(--line-strong);
+        border-radius: 3px;
+        text-decoration: none;
+      }
+
+      .why {
+        margin-top: 1.75rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--line);
+        font-size: 0.85rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Keine Verbindung</h1>
+      <p>
+        Die App ist offen, aber das Gerät erreicht gerade das Internet nicht. Sobald die Verbindung
+        wieder steht, öffnet sich der Posteingang normal.
+      </p>
+      <a class="retry" href="/inbox">Erneut versuchen</a>
+      <p class="why">
+        Anfragen, Preise und Angebote werden bewusst nicht auf dem Gerät gespeichert. Ein Angebot ist
+        freibleibend und kann sich ändern — eine offline angezeigte Zahl könnte längst überholt sein.
+        Deshalb zeigt die App lieber diese Seite als einen alten Stand.
+      </p>
+    </main>
+  </body>
+</html>
