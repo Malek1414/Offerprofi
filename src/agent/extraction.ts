@@ -272,7 +272,11 @@ export async function extractRequest(request: ExtractionRequest): Promise<Extrac
   return {
     ok: true,
     ...built,
-    injectionSuspected: payload.injection_suspected,
+    // A2 — either source is enough. The model's own account is worth having and is
+    // not worth trusting alone: a prompt injection that worked is precisely the one
+    // able to report that nothing happened. `foreignMarkers` was decided before the
+    // model saw anything, so it is the half that holds under attack.
+    injectionSuspected: payload.injection_suspected || outcome.foreignMarkers,
     injectionNote: payload.injection_note,
     runId: outcome.runId,
     costMicroCents: outcome.costMicroCents,

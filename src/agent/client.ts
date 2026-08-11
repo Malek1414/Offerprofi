@@ -115,6 +115,15 @@ export interface ModelSuccess {
   costMicroCents: number | null
   /** Null when nothing was written — the demo tenant path. */
   runId: string | null
+  /**
+   * A2 — marker syntax reached the prompt that `buildPrompt` did not author.
+   *
+   * Decided in code before the model was asked anything. The model's own
+   * `injection_suspected` is its account of whether it was manipulated, which a
+   * successful manipulation can falsify; this cannot be talked out of firing, so
+   * callers must treat it as at least as authoritative.
+   */
+  foreignMarkers: boolean
 }
 
 export interface ModelFailure {
@@ -197,7 +206,11 @@ export async function callModel(request: ModelRequest): Promise<ModelOutcome> {
     return failed('not_configured', 'ANTHROPIC_API_KEY is not set', startedAt, null)
   }
 
-  const { system, user } = buildPrompt(request.role, request.instruction, request.documents ?? [])
+  const { system, user, foreignMarkers } = buildPrompt(
+    request.role,
+    request.instruction,
+    request.documents ?? [],
+  )
   const inputRef = contentRef(`${system}\n${user}`)
 
   try {
@@ -275,7 +288,7 @@ export async function callModel(request: ModelRequest): Promise<ModelOutcome> {
       }
     }
 
-    return { ok: true, text, model, usage, latencyMs, costMicroCents: cost, runId }
+    return { ok: true, text, model, usage, latencyMs, costMicroCents: cost, runId, foreignMarkers }
   } catch (error) {
     const status = error instanceof Anthropic.APIError ? error.status : undefined
     const name = error instanceof Error ? error.name : 'UnknownError'
