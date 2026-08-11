@@ -1,0 +1,382 @@
+/*
+ * The confirmation queue.
+ *
+ * Two visual weights and no more: the card that needs a decision, and everything
+ * else. An owner three items into a queue of twenty-nine should never have to
+ * work out where to look, so the card is raised and the bulk row is flat, and
+ * nothing else on the page competes with either.
+ *
+ * Every control here is >=44px in its smallest dimension (D1). This screen is the
+ * one most likely to be used one-handed on a phone while standing in a kitchen,
+ * and a mis-tap costs a training example and a wrong catalogue entry.
+ */
+
+.wrap {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 1.25rem 1rem 4rem;
+}
+
+.header {
+  margin-bottom: 1.25rem;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--display);
+  font-size: var(--step-2);
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.sub {
+  margin: 0.3rem 0 0;
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+}
+
+/* The learning bar. Reads decided-of-total across every session, so coming back
+ * tomorrow continues rather than restarts. */
+.bar {
+  height: 4px;
+  margin-top: 0.9rem;
+  background: var(--paper-sunk);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.barFill {
+  display: block;
+  height: 100%;
+  background: var(--brand);
+  /* Slow enough to be noticed, short enough not to be waited for. */
+  transition: width 240ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .barFill {
+    transition: none;
+  }
+}
+
+.barLabel {
+  margin: 0.35rem 0 0;
+  font-size: var(--step--1);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
+}
+
+.error {
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.85rem;
+  font-size: var(--step--1);
+  color: var(--warn-ink);
+  background: var(--warn-wash);
+  border-radius: var(--radius);
+}
+
+/* ─── The confident group ─────────────────────────────────────────────────── */
+
+.bulk {
+  padding: 0.9rem 1rem 1rem;
+  margin-bottom: 1.25rem;
+  background: var(--paper-sunk);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.bulkSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0;
+  font: inherit;
+  font-size: var(--step-0);
+  color: var(--ink);
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.bulkPreview {
+  margin: 0.2rem 0 0;
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+  overflow-wrap: anywhere;
+}
+
+.bulkList {
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--step--1);
+}
+
+.bulkList li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.bulkList li:last-child {
+  border-bottom: 0;
+}
+
+.bulkPrice {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-mute);
+}
+
+/* ─── The card that needs a decision ──────────────────────────────────────── */
+
+.card {
+  padding: 1.1rem 1rem 1rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  /* The only shadow on the page. It is what makes "this is the thing to look at"
+   * legible without a colour that would fight the agency's brand. */
+  box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
+}
+
+.cardTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.eyebrow {
+  font-size: var(--step--1);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+
+.counter {
+  font-size: var(--step--1);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
+}
+
+.cardTitle {
+  margin: 0.4rem 0 0;
+  font-family: var(--display);
+  font-size: var(--step-1);
+  font-weight: 500;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.cardPrice {
+  margin: 0.25rem 0 0;
+  font-size: var(--step-1);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.driver {
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+}
+
+/* Evidence. Verification by glance — an owner who has to go hunting in a PDF
+ * will start pressing "passt" on everything, and the signal turns to noise. */
+.evidence {
+  margin: 0.85rem 0 0;
+  padding: 0.6rem 0.75rem;
+  background: var(--paper-sunk);
+  border-left: 2px solid var(--line-strong);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.evidenceSource {
+  font-size: var(--step--1);
+  color: var(--ink-faint);
+}
+
+.excerpt {
+  margin: 0.3rem 0 0;
+  font-size: var(--step--1);
+  font-style: italic;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.noEvidence {
+  margin: 0.85rem 0 0;
+  padding: 0.6rem 0.75rem;
+  font-size: var(--step--1);
+  color: var(--warn-ink);
+  background: var(--warn-wash);
+  border-radius: var(--radius);
+}
+
+/* ─── Actions ─────────────────────────────────────────────────────────────── */
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.reject,
+.edit,
+.accept,
+.primary {
+  flex: 1;
+  min-height: 2.75rem;
+  padding: 0.6rem 0.75rem;
+  font: inherit;
+  font-size: var(--step--1);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.reject {
+  color: var(--ink-soft);
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+}
+
+.edit {
+  color: var(--ink-soft);
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+}
+
+/* "passt" is the common answer, so it carries the weight. "ändern" sits beside it
+ * at equal size rather than behind a pencil icon: what the owner changes becomes
+ * `corrected_to` on the verdict, which is the most valuable row this product
+ * produces, and hiding the control that produces it would be backwards. */
+.accept {
+  color: var(--on-brand);
+  background: var(--brand);
+  border: 1px solid var(--brand);
+}
+
+.primary {
+  width: 100%;
+  margin-top: 0.75rem;
+  font-size: var(--step-0);
+  color: var(--on-brand);
+  background: var(--brand);
+  border: 1px solid var(--brand);
+}
+
+.reject:disabled,
+.edit:disabled,
+.accept:disabled,
+.primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* ─── Edit form ───────────────────────────────────────────────────────────── */
+
+.form {
+  margin-top: 0.9rem;
+}
+
+.field {
+  display: block;
+  margin-bottom: 0.7rem;
+}
+
+.field span {
+  display: block;
+  margin-bottom: 0.2rem;
+  font-size: var(--step--1);
+  color: var(--ink-mute);
+}
+
+.field input,
+.field select {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.6rem;
+  font: inherit;
+  font-size: var(--step-0);
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+}
+
+.fieldHint {
+  margin: -0.4rem 0 0.7rem;
+  font-size: var(--step--1);
+  color: var(--ink-faint);
+}
+
+/* ─── Hints ───────────────────────────────────────────────────────────────── */
+
+.hint {
+  margin: 0.8rem 0 0;
+  font-size: var(--step--1);
+  color: var(--ink-faint);
+}
+
+/* Show the gesture that the device can actually perform. Telling a desktop user
+ * to swipe, or a phone user about keyboard shortcuts, is noise that teaches them
+ * to stop reading the hints. */
+.hintTouch {
+  display: none;
+}
+
+.hintKeys {
+  display: none;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .hintTouch {
+    display: inline;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hintKeys {
+    display: inline;
+  }
+}
+
+.done {
+  padding: 1.5rem 1rem;
+  text-align: center;
+  background: var(--paper-sunk);
+  border-radius: var(--radius);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (min-width: 40rem) {
+  .wrap {
+    padding-top: 2.5rem;
+  }
+
+  /* On a pointer device the actions do not need to fill the width; sized to
+   * content they read as a row of choices rather than three equal claims. */
+  .actions {
+    justify-content: flex-end;
+  }
+
+  .reject,
+  .edit,
+  .accept {
+    flex: 0 0 auto;
+    min-width: 8rem;
+  }
+}
