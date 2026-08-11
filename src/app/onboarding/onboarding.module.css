@@ -169,6 +169,29 @@
 }
 
 /*
+ * On a 390px phone the three-column step row leaves the title about 200px after the
+ * marker, the gaps and a `nowrap` count are taken out of it. "Vergangene Angebote
+ * hochladen" then breaks across three lines beside a count that is one line, and the
+ * row reads as two unrelated things. Below 26rem the count moves under the title,
+ * where it is still the same information and the title gets the full width.
+ *
+ * 26rem rather than the 30rem used elsewhere in the product: at 390px the row is
+ * cramped but legible, and collapsing it on a 430px phone would waste a line for
+ * nothing.
+ */
+@media (max-width: 26rem) {
+  .step {
+    grid-template-columns: auto 1fr;
+  }
+
+  .stepCount {
+    grid-column: 2;
+    grid-row: auto;
+    padding-top: 0.2rem;
+  }
+}
+
+/*
  * A step that cannot be started yet. Present, so the owner can see the whole shape of
  * the setup from the first screen, but visibly waiting rather than either done or
  * demanding attention — the three states have to be told apart at a glance.
@@ -190,9 +213,22 @@
   font-style: italic;
 }
 
+/*
+ * The one control on each outstanding step. It is an anchor rather than a button, so
+ * the 44px floor in globals.css — which deliberately leaves links alone, because
+ * inline links inside sentences must not be inflated — does not reach it. It carries
+ * the floor itself: this is a button in everything except its tag, and it was 33px.
+ *
+ * inline-flex, not inline-block, so `min-height` produces a centred label instead of
+ * a taller box with the text still stuck to the top. "Markenauftritt festlegen" wraps
+ * on a narrow phone, which is why the height is a minimum and not a height.
+ */
 .stepAction {
   grid-column: 2;
   justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
   margin-top: 0.85rem;
   font-size: var(--step--1);
   font-weight: 600;
@@ -200,9 +236,8 @@
   background: var(--paper);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
-  padding: 0.5rem 0.85rem;
+  padding: 0.5rem 0.95rem;
   text-decoration: none;
-  display: inline-block;
 }
 
 .stepAction:hover {
@@ -272,12 +307,21 @@
   flex-wrap: wrap;
 }
 
+/*
+ * Sign out reads as a text link and is a real button. The 44px floor from globals.css
+ * gives it the height; `inline-flex` is what makes that height a centred label rather
+ * than underlined text pinned to the top of a tall empty box, and the horizontal
+ * padding is what stops a 44px-tall target being 52px wide and 44px tall with the
+ * hit area sitting entirely on the glyphs.
+ */
 .signOut {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.4rem;
   font: inherit;
   color: var(--ink-mute);
   background: none;
   border: none;
-  padding: 0;
   cursor: pointer;
   text-decoration: underline;
 }

@@ -159,12 +159,24 @@
   font-weight: 600;
 }
 
-/* The signature control: opens one line's arithmetic. */
+/*
+ * The signature control: opens one line's arithmetic.
+ *
+ * It is also, on a phone, the smallest thing on the most important document in the
+ * product — about 24px tall before the floor in globals.css reached it, one per line
+ * item, stacked. "Warum dieser Preis?" is the control that turns a deterministic
+ * engine into something a customer can check, so it has to be tappable by someone who
+ * is not aiming carefully.
+ *
+ * The top margin comes down as the height goes up: 44px of centred control already
+ * separates it from the line above, and keeping 0.6rem on top of that would add most
+ * of a line of space to every position on the quote.
+ */
 .why {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  margin-top: 0.6rem;
+  margin-top: 0.1rem;
   padding: 0.2rem 0;
   background: none;
   border: 0;
@@ -308,7 +320,14 @@
   flex-wrap: wrap;
   gap: 0.6rem;
 }
+/* "Etwas ändern" and "Mit einem Menschen sprechen". Centred inside the 44px floor
+   from globals.css so a wrapped German label stays square in the box, and allowed to
+   wrap rather than stretch — `.altActions` already wraps them onto separate lines on
+   a phone. */
 .ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0.55rem 1.05rem;
   background: transparent;
   color: var(--brand-ink);

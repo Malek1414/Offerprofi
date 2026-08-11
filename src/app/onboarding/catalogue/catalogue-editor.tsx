@@ -211,16 +211,41 @@ export function CatalogueEditor({ initialItems }: Props) {
     setBands(bands.map((band, i) => (i === index ? { ...band, ...patch } : band)))
   }
 
+  /**
+   * Remove a service, optimistically (D1).
+   *
+   * The row disappears on the press and the network confirms afterwards, rather than
+   * the owner watching a row she has already decided about sit there for a round trip.
+   * This is the case optimism is for and the one on the enquiry screen is not: the
+   * server cannot come back with a third answer, only "gone" or "not gone", and the
+   * failure is cheap to reconcile because the item is still in hand — it goes back
+   * where it was, in the position it held, with a message saying so.
+   *
+   * `busy` is deliberately not set. It disables the save button, and there is no
+   * reason a delete that has already visibly happened should block her from typing the
+   * next service.
+   */
   async function retire(item: EditorItem) {
-    setBusy(true)
+    const index = items.findIndex((i) => i.id === item.id)
+    setFormError(null)
+    setItems((current) => current.filter((i) => i.id !== item.id))
+
     try {
       const response = await fetch(`/api/catalogue?id=${encodeURIComponent(item.id)}`, {
         method: 'DELETE',
       })
-      if (response.ok) setItems((current) => current.filter((i) => i.id !== item.id))
-      else setFormError('Das konnte gerade nicht entfernt werden.')
-    } finally {
-      setBusy(false)
+      if (response.ok) return
+      throw new Error(`status ${response.status}`)
+    } catch {
+      // Put it back exactly where it was. A restored row that reappears at the bottom
+      // of the list reads as a second, different service.
+      setItems((current) => {
+        if (current.some((i) => i.id === item.id)) return current
+        const restored = [...current]
+        restored.splice(index < 0 ? restored.length : index, 0, item)
+        return restored
+      })
+      setFormError('Das konnte gerade nicht entfernt werden — die Leistung steht weiter im Katalog.')
     }
   }
 

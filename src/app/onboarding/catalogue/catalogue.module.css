@@ -23,11 +23,24 @@
   margin: 0 auto;
 }
 
+/*
+ * "← Einrichtung" is the only way back out of this screen on a phone, where there is
+ * no browser chrome worth aiming at either. It is a link, so the 44px floor in
+ * globals.css skips it by design — that rule leaves links alone so inline links
+ * inside sentences are not inflated — and it has to declare the floor itself. It was
+ * 81×19px.
+ *
+ * The negative left margin keeps the label optically aligned with the heading beneath
+ * it while the hit area extends past it on both sides.
+ */
 .back {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 0.5rem;
+  margin: 0 0 0.75rem -0.5rem;
   font-size: var(--step--1);
   color: var(--ink-mute);
-  margin-bottom: 1.25rem;
 }
 
 .back:hover {
@@ -65,13 +78,20 @@
   border-radius: var(--radius);
   padding: 0.9rem 1.1rem;
   display: grid;
-  grid-template-columns: 1fr auto;
+  /* `minmax(0, 1fr)` rather than `1fr`. A grid track's default minimum is its content,
+     so "Ganztagesbetreuung Hochzeitsgesellschaft" — one word as far as the layout is
+     concerned once it has no space to break at — makes the track wider than the card
+     and pushes the price column off a 390px screen. */
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.15rem 1rem;
   align-items: baseline;
 }
 
 .itemName {
   font-weight: 600;
+  /* German compounds are single words of arbitrary length. Break inside one rather
+     than let it decide the width of the row. */
+  overflow-wrap: anywhere;
 }
 
 .itemPrice {
@@ -233,13 +253,27 @@
   outline-offset: 2px;
 }
 
+/*
+ * Every low-emphasis action on this screen: "Bearbeiten", "Entfernen", "Staffel
+ * hinzufügen", "Abbrechen". Low emphasis is a visual claim, not a licence to be hard
+ * to hit — "Entfernen" destroys a catalogue item, and at 31px it sat directly beside
+ * "Bearbeiten" in the same wrapped meta line.
+ *
+ * The 44px floor comes from globals.css. What is added here is `inline-flex` so the
+ * label centres inside that height instead of hanging at the top, and `flex: none` so
+ * the two actions at the end of `.itemMeta` are not compressed to slivers when the
+ * driver, VAT rate and floor price ahead of them have already claimed the row.
+ */
 .secondary {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
   font-family: var(--body);
   font-size: var(--step--1);
   color: var(--ink-mute);
   background: none;
   border: none;
-  padding: 0.5rem;
+  padding: 0 0.4rem;
   cursor: pointer;
   text-decoration: underline;
 }

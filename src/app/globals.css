@@ -122,6 +122,40 @@ button {
   font: inherit;
 }
 
+/*
+ * The touch-target floor (D1).
+ *
+ * 2.75rem is 44px at the default root size. It is set here, once, on the form
+ * controls rather than repeated in nine modules, because the failure it prevents is
+ * uniform: every button and field in this product was sized by its padding, and
+ * padding tuned to look right on a laptop lands between 28px and 43px — a target a
+ * thumb misses often enough to be noticed but not often enough to be reported.
+ * Measured in Chrome at 390px before this rule: every field on /login and /signup was
+ * 43px — a miss you would never catch by eye. Computed from the declarations: the slug
+ * suggestion chips ~28px, the catalogue row actions ~31px, the "Warum dieser Preis?"
+ * disclosure on the quote ~24px.
+ *
+ * `min-height`, never `height`. German labels run roughly 30% longer than the English
+ * they were designed against — "Angebot erstellen & senden", "Neuen Link erzeugen —
+ * der bisherige wird ungültig" — and a fixed height turns a wrapped second line into
+ * text spilling out of its own button.
+ *
+ * Checkboxes and radios are excluded on purpose. A 44px-tall checkbox that is 22px
+ * wide is not a bigger target, it is a lopsided one; those get a wrapping label with
+ * a real 44px hit area instead (see guardrails.module.css).
+ *
+ * Links are excluded too. An inline link inside a sentence — "Sie haben schon ein
+ * Konto? Anmelden" — is exempt under WCAG 2.5.5, and forcing it to 44px would break
+ * the line box it sits in. Links that are dressed as buttons carry the floor
+ * explicitly in their own module.
+ */
+button,
+input:not([type='checkbox']):not([type='radio']):not([type='hidden']),
+select,
+textarea {
+  min-height: 2.75rem;
+}
+
 /* An eyebrow labels a region. It is a label, not decoration — every use in this
    product names something the reader can act on or verify. */
 .eyebrow {
@@ -131,6 +165,49 @@ button {
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--ink-mute);
+}
+
+/*
+ * Loading skeletons (D1: "skeletons that match final layout, no layout shift").
+ *
+ * Global rather than per-module, because every `loading.tsx` in the product needs the
+ * same two primitives and the alternative is nine copies that drift. The route's own
+ * module still supplies the boxes — a skeleton lives inside the real `.page`, the real
+ * `.shell`, the real `.panel` — so the placeholder occupies the same rectangle the
+ * content will, and nothing moves when the server finishes. That is the whole point:
+ * a spinner in the middle of an empty page is not a loading state, it is a promise
+ * that the layout is about to jump.
+ *
+ * `.skeleton-line` takes its height from the type step it stands in for, so a line of
+ * body text reserves the space a line of body text will need. Sized in `em`, so it
+ * follows whatever font-size the surrounding module set without being told.
+ *
+ * The breathe is deliberately slow and shallow. A fast, high-contrast shimmer draws
+ * the eye to the thing that is not there yet; the prefers-reduced-motion rule further
+ * down stops it entirely for anyone who has asked for that.
+ */
+.skeleton,
+.skeleton-line {
+  background: var(--paper-sunk);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  animation: skeleton-breathe 1.6s ease-in-out infinite;
+}
+
+.skeleton-line {
+  height: 1.55em;
+  border: 0;
+  border-radius: 2px;
+}
+
+@keyframes skeleton-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
 }
 
 .sr-only {

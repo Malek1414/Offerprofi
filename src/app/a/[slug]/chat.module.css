@@ -114,10 +114,19 @@
 .humanButton {
   /* Allowed to shrink, never to disappear: Invariant 5 requires this control to be
      available on every turn, so on a narrow phone with a long owner name it wraps
-     to two lines rather than being pushed off-screen or hidden behind a menu. */
+     to two lines rather than being pushed off-screen or hidden behind a menu.
+
+     The 44px floor from globals.css is what makes "available" mean available to a
+     thumb as well as to a cursor — this was a 29px pill in a sticky header, i.e. the
+     hardest thing on the screen to hit and the one control Invariant 5 promises. It
+     is centred rather than top-aligned so a two-line German label still sits square
+     inside the pill. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: 0 1 auto;
   min-width: 0;
-  padding: 0.45rem 0.75rem;
+  padding: 0.45rem 0.85rem;
   font-size: var(--step--1);
   font-weight: 600;
   line-height: 1.2;
@@ -135,6 +144,35 @@
 .humanButton[disabled] {
   opacity: 0.55;
   cursor: default;
+}
+
+/*
+ * The header stops being one row on a phone.
+ *
+ * Measured at 390px with a real agency and a real owner name: "mit Johannes
+ * Niederhut sprechen" is 236px of a 390px header, which left the identity column 90px
+ * and ellipsed "Süßwaren & Festlichkeiten Groß-Gerau" down to "Süß…" while
+ * "KI-Assistent" broke across two lines. Both of those are load-bearing — the agency
+ * name is whose surface this is, and the AI label is the Art. 50(1) disclosure — and
+ * a German owner name is not going to get shorter.
+ *
+ * Neither control may shrink further, so the row splits instead. The button keeps its
+ * natural width on a line of its own, right-aligned where a thumb already is, and
+ * nothing is hidden behind a menu: Invariant 5 says this control is advertised, and
+ * giving it its own line advertises it harder than sharing one did.
+ */
+@media (max-width: 30rem) {
+  .header {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.4rem 0.75rem;
+  }
+
+  .humanButton {
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
 }
 
 /* ─── Transcript ──────────────────────────────────────────────────────────── */
@@ -313,7 +351,13 @@
   border-top: 1px solid var(--brand-line);
 }
 
+/* The single most important button on the customer's screen — it is the moment the
+   enquiry becomes a request. Centred inside the 44px floor from globals.css so a
+   wrapped German label stays square in the box. */
 .sendRequest {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0.6rem 1.1rem;
   font: inherit;
   font-weight: 600;
@@ -389,6 +433,22 @@
   /* 16px minimum, or iOS Safari zooms the viewport on focus and the customer is
      left pinching to get back out. */
   font-size: max(16px, var(--step-0));
+  /*
+   * The composer grows with what she types, in CSS, at no cost per keystroke.
+   *
+   * The usual way to auto-grow a textarea is an `onInput` handler that sets height to
+   * `el.scrollHeight`. That is a forced layout on every keystroke, on the one input in
+   * the product a customer types a paragraph into — precisely the synchronous work D1
+   * bars from the keystroke path, and it is felt on a mid-range Android long before it
+   * is felt on a laptop.
+   *
+   * `field-sizing: content` hands the same behaviour to the layout engine, which was
+   * going to lay the box out anyway. The `max-height` above caps it so a long message
+   * never eats the transcript, and the internal scrollbar takes over from there.
+   * Browsers without support fall back to the fixed `min-height`, which is what the
+   * composer did before — a degradation, not a break.
+   */
+  field-sizing: content;
 }
 
 .input:focus-visible {
@@ -397,7 +457,10 @@
 
 .send {
   flex: none;
-  height: 2.75rem;
+  /* A minimum, not a height. "Senden" fits on one line and "Wird gesendet …" — the
+     busy label swapped in at exactly the moment the button must not move — does not
+     always. A fixed 2.75rem clips the second line instead of growing. */
+  min-height: 2.75rem;
   padding: 0 1.05rem;
   font-weight: 650;
   color: var(--on-brand);
@@ -420,6 +483,18 @@
   left: -9999px;
   width: 1px;
   height: 1px;
+  /*
+   * The trap must not resize the page it is hiding in.
+   *
+   * globals.css gives every input a 2.75rem floor so no real field is a 43px target.
+   * This field is not a target — it is bait — and the floor made it 44px tall inside
+   * a 1px label, which overflowed the composer and gave the chat 20px of page scroll
+   * it should never have: measured `document.scrollHeight` 864 against a 844px
+   * viewport, on the one screen whose entire layout is "the viewport, minus the
+   * composer". Clipping here fixes it without a specificity fight with the global
+   * rule, and without letting the input shrink back to something a bot might skip.
+   */
+  overflow: hidden;
   opacity: 0;
   pointer-events: none;
 }
@@ -429,12 +504,34 @@
 .footer {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.25rem 0.9rem;
-  padding: 0 1rem 1rem;
+  padding: 0 1rem calc(0.25rem + env(safe-area-inset-bottom));
   font-size: var(--step--1);
   color: var(--ink-faint);
 }
 
+/*
+ * Art. 13 and §5 TMG links, sized to be reachable rather than merely present.
+ *
+ * They are links, so the 44px floor in globals.css leaves them alone — correctly, for
+ * links inside a sentence. These are not inside a sentence: they are two standalone
+ * targets 19px tall in the corner of a phone screen, and the whole GDPR posture of
+ * this product rests on the customer being able to get to them. The height comes out
+ * of the transcript rather than out of the page, because the shell is a fixed-height
+ * flex column.
+ */
 .footer a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
   color: var(--ink-mute);
+}
+
+/* The privacy line at first contact (F1.13) is a whole notice panel with a single
+   link in it. The link fills the panel, so the target is the thing the customer sees,
+   not the underlined run of text inside it. */
+.notice a {
+  display: block;
+  min-height: 2.75rem;
 }
