@@ -25,7 +25,7 @@ import { acknowledgeInquiry } from '../../../../chat/ack'
 import { triageInbound } from '../../../../chat/abuse'
 import { type AgentTurn, composeAgentTurns, streamChunks } from '../../../../chat/conversation'
 import { RateLimiter } from '../../../../chat/rate-limit'
-import { recordChatTurnDetached } from '../../../../chat/persistence'
+import { recordChatTurnDetached, recordOutboundTurnsDetached } from '../../../../chat/persistence'
 import { runQualifyingTurn } from '../../../../chat/qualifying-turn'
 import {
   SESSION_COOKIE_NAME,
@@ -255,7 +255,12 @@ export async function POST(
     }
   }
 
-  const stream = streamTurns(turns, persist, followUp)
+  const stream = streamTurns(turns, persist, followUp, (persisted, spoken) => {
+    // Both halves of the exchange are now in `messages`. Until this existed the
+    // owner's inbox could only ever show the customer's questions, which reads as
+    // a complete transcript and is not one.
+    if (persisted) recordOutboundTurnsDetached(agency.id, persisted.inquiryId, spoken)
+  })
 
   const headers = new Headers({
     'Content-Type': 'text/event-stream; charset=utf-8',
@@ -297,6 +302,12 @@ function streamTurns<T>(
   turns: { kind: string; text: string }[],
   afterFirstChunk: () => Promise<T>,
   followUp?: (_persisted: Promise<T>) => Promise<{ kind: string; text: string }[]>,
+  /**
+   * Everything the assistant said, handed over once the last frame is on the wire.
+   * Deliberately after `done` and deliberately not awaited by the stream: recording
+   * a conversation must never be able to stop one from arriving.
+   */
+  onSpoken?: (_persisted: T, _spoken: { kind: string; text: string }[]) => void,
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder()
   return new ReadableStream({
@@ -305,16 +316,21 @@ function streamTurns<T>(
         controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`))
       }
       let pending: Promise<{ kind: string; text: string }[]> | null = null
+      // Held so the persist step can reach the inquiry the first chunk created.
+      let persistedRef: Promise<T> | null = null
+      const spoken: { kind: string; text: string }[] = []
       try {
         let started = false
         const stream = async (batch: { kind: string; text: string }[]) => {
           for (const turn of batch) {
+            spoken.push(turn)
             send('turn', { kind: turn.kind })
             for (const chunk of streamChunks(turn.text)) {
               send('chunk', { text: chunk })
               if (!started) {
                 started = true
                 const persisted = afterFirstChunk()
+                persistedRef = persisted
                 // Kicked off here and collected below. Not awaited: the whole point
                 // of the ordering is that the customer reads while this runs.
                 pending = followUp ? followUp(persisted) : null
@@ -333,6 +349,7 @@ function streamTurns<T>(
         if (!started) {
           started = true
           const persisted = afterFirstChunk()
+          persistedRef = persisted
           pending = followUp ? followUp(persisted) : null
         }
         if (pending) {
@@ -354,6 +371,14 @@ function streamTurns<T>(
           if (answer.some((t) => t.kind === 'send_now')) send('send_now', {})
         }
         send('done', {})
+
+        // The conversation is on her screen; now write down our half of it. After
+        // `done` on purpose — a database round trip here cannot delay a single word
+        // she reads, and if it fails she has still had the whole exchange.
+        if (onSpoken && persistedRef) {
+          const persisted = await persistedRef.catch(() => null)
+          if (persisted) onSpoken(persisted, spoken)
+        }
       } catch (error) {
         send('error', { message: error instanceof Error ? error.message : 'stream failed' })
       } finally {

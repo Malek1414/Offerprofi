@@ -112,3 +112,55 @@ export function recordChatTurnDetached(turn: ChatTurnRecord): Promise<ChatTurnPe
     },
   )
 }
+
+/**
+ * Persist the assistant's side of an exchange.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * NEVER ON THE PATH THE CUSTOMER IS WAITING ON.
+ *
+ * The stream is the product's headline promise, and a database round trip in
+ * front of it buys nothing she can see. This is called after the last turn has
+ * been written to the wire, and its failure mode is a log line — a conversation
+ * that reached her and was not recorded is bad; one that did not reach her
+ * because recording it failed is worse.
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * Batched deliberately: the first exchange is a disclosure, a privacy line and an
+ * acknowledgement, and three round trips is three chances to half-write a
+ * conversation.
+ */
+export async function recordOutboundTurns(
+  agencyId: string,
+  inquiryId: string,
+  turns: readonly { kind: string; text: string }[],
+): Promise<number> {
+  if (!hasDatabase() || turns.length === 0) return 0
+
+  return asAnonymous(async (client) => {
+    const result = await client.query(
+      `select public.record_outbound_chat_turns($1::uuid, $2::uuid, $3::text[], $4::text[]) as written`,
+      [agencyId, inquiryId, turns.map((t) => t.kind), turns.map((t) => t.text)],
+    )
+    return Number(result.rows[0]?.written ?? 0)
+  })
+}
+
+/** Fire and log. The name says what it does, so a caller reaching for it notices. */
+export function recordOutboundTurnsDetached(
+  agencyId: string,
+  inquiryId: string,
+  turns: readonly { kind: string; text: string }[],
+): void {
+  void recordOutboundTurns(agencyId, inquiryId, turns).catch((error: unknown) => {
+    console.error(
+      JSON.stringify({
+        event: 'outbound_turns_persist_failed',
+        agencyId,
+        inquiryId,
+        kinds: turns.map((t) => t.kind),
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    )
+  })
+}
